@@ -1,0 +1,81 @@
+dataSources:
+  ds_0:
+    driverName: mysql
+    url: "root:password@tcp(localhost:3306)/ds_0?charset=utf8mb4&parseTime=True&loc=Local"
+    username: root
+    password: password
+    maxIdle: 10
+    maxOpen: 100
+  ds_1:
+    driverName: mysql
+    url: "root:password@tcp(localhost:3306)/ds_1?charset=utf8mb4&parseTime=True&loc=Local"
+    username: root
+    password: password
+    maxIdle: 10
+    maxOpen: 100
+
+shardingRule:
+  tables:
+    t_order:
+      logicTable: t_order
+      actualDataNodes: "ds_${0..1}.t_order_${0..1}"
+      databaseStrategy:
+        type: inline
+        shardingColumn: user_id
+        algorithm: "ds_${user_id % 2}"
+      tableStrategy:
+        type: inline
+        shardingColumn: order_id
+        algorithm: "t_order_${order_id % 2}"
+      keyGenerator:
+        column: order_id
+        type: snowflake
+    t_order_item:
+      logicTable: t_order_item
+      actualDataNodes: "ds_${0..1}.t_order_item_${0..1}"
+      databaseStrategy:
+        type: inline
+        shardingColumn: user_id
+        algorithm: "ds_${user_id % 2}"
+      tableStrategy:
+        type: inline
+        shardingColumn: order_id
+        algorithm: "t_order_item_${order_id % 2}"
+      keyGenerator:
+        column: item_id
+        type: snowflake
+    t_user:
+      logicTable: t_user
+      actualDataNodes: "ds_${0..1}.t_user"
+      databaseStrategy:
+        type: inline
+        shardingColumn: user_id
+        algorithm: "ds_${user_id % 2}"
+      keyGenerator:
+        column: user_id
+        type: snowflake
+
+  defaultDatabaseStrategy:
+    type: inline
+    shardingColumn: id
+    algorithm: "ds_${id % 2}"
+  
+  defaultKeyGenerator:
+    column: id
+    type: snowflake
+
+readWriteSplits:
+  master_slave_ds_0:
+    name: master_slave_ds_0
+    masterDataSource: ds_0_master
+    slaveDataSources:
+      - ds_0_slave_0
+      - ds_0_slave_1
+    loadBalanceAlgorithm: round_robin
+  master_slave_ds_1:
+    name: master_slave_ds_1
+    masterDataSource: ds_1_master
+    slaveDataSources:
+      - ds_1_slave_0
+      - ds_1_slave_1
+    loadBalanceAlgorithm: round_robin

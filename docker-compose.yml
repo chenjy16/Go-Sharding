@@ -1,0 +1,148 @@
+version: '3.8'
+
+services:
+  # MySQL 主库 (ds_0)
+  mysql-ds0:
+    image: mysql:8.0
+    container_name: go-sharding-mysql-ds0
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: ds_0
+      MYSQL_USER: sharding
+      MYSQL_PASSWORD: sharding123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_ds0_data:/var/lib/mysql
+      - ./scripts/init_database.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --default-authentication-plugin=mysql_native_password
+    networks:
+      - go-sharding-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # MySQL 从库 (ds_1)
+  mysql-ds1:
+    image: mysql:8.0
+    container_name: go-sharding-mysql-ds1
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: ds_1
+      MYSQL_USER: sharding
+      MYSQL_PASSWORD: sharding123
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_ds1_data:/var/lib/mysql
+      - ./scripts/init_database.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --default-authentication-plugin=mysql_native_password
+    networks:
+      - go-sharding-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # Redis (用于分布式锁和缓存)
+  redis:
+    image: redis:7-alpine
+    container_name: go-sharding-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - go-sharding-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      timeout: 3s
+      retries: 5
+
+  # Go-Sharding 演示应用
+  go-sharding-demo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: go-sharding-demo
+    depends_on:
+      mysql-ds0:
+        condition: service_healthy
+      mysql-ds1:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DB_DS0_URL=root:password@tcp(mysql-ds0:3306)/ds_0?charset=utf8mb4&parseTime=True&loc=Local
+      - DB_DS1_URL=root:password@tcp(mysql-ds1:3306)/ds_1?charset=utf8mb4&parseTime=True&loc=Local
+      - REDIS_URL=redis:6379
+    networks:
+      - go-sharding-network
+    volumes:
+      - ./examples/yaml_config/config.yaml:/root/config/config.yaml:ro
+    restart: unless-stopped
+
+  # Adminer (数据库管理工具)
+  adminer:
+    image: adminer:latest
+    container_name: go-sharding-adminer
+    ports:
+      - "8080:8080"
+    networks:
+      - go-sharding-network
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql-ds0
+
+  # Prometheus (监控)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: go-sharding-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - go-sharding-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+
+  # Grafana (监控面板)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: go-sharding-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - go-sharding-network
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+
+volumes:
+  mysql_ds0_data:
+    driver: local
+  mysql_ds1_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  go-sharding-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

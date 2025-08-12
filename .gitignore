@@ -1,0 +1,240 @@
+# Go-Sharding .gitignore
+# 基于 Apache ShardingSphere 设计的 Go 语言分片数据库中间件
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+
+# Build directories
+bin/
+build/
+dist/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Log files
+*.log
+logs/
+
+# Configuration files with sensitive data
+config/local.yaml
+config/production.yaml
+*.env
+.env.local
+.env.production
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Coverage reports
+coverage.out
+coverage.html
+coverage.xml
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Docker volumes
+docker-data/
+
+# Monitoring data
+prometheus_data/
+grafana_data/
+
+# Test artifacts
+testdata/output/
+
+# Profiling data
+*.prof
+*.pprof
+
+# Backup files
+*.bak
+*.backup
+
+# Archive files
+*.tar
+*.tar.gz
+*.zip
+*.rar
+
+# Certificate files
+*.pem
+*.key
+*.crt
+*.p12
+
+# Local development files
+local/
+dev/
+
+# Documentation build
+docs/_build/
+docs/site/
+
+# Node.js (if using for frontend tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python (if using for scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+Session.vim
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Tags
+TAGS
+tags
+.tags
+.tags1
+
+# ctags
+.ctags
+
+# cscope
+cscope.*
+
+# GNU Global
+GPATH
+GRTAGS
+GSYMS
+GTAGS
+
+# Benchmarking
+benchmarks/
+
+# Performance profiling
+*.cpu
+*.mem
+*.block
+*.mutex
+
+# Race detection
+*.race
+
+# Go module proxy
+GOPROXY
+GOSUMDB
+
+# Air (live reload tool)
+tmp/
+
+# Delve debugger
+debug
+debug.test
+
+# GoLand
+.idea/
+
+# GoReleaser
+dist/
+goreleaser.yml
+
+# Kubernetes
+*.yaml.bak
+k8s/secrets/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Ansible
+*.retry
+
+# Local scripts
+scripts/local/
+scripts/dev/
+
+# Test results
+test-results/
+junit.xml
+
+# Linting results
+.golangci.yml.bak
+
+# Security scanning
+.snyk
+security-scan-results/
+
+# Performance testing
+load-test-results/
+
+# Documentation
+docs/build/
+site/
+
+# Changelog drafts
+CHANGELOG.draft.md
+
+# Release notes
+RELEASE_NOTES.draft.md
