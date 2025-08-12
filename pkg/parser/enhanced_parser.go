@@ -33,19 +33,20 @@ func NewEnhancedSQLParser() *EnhancedSQLParser {
 
 // EnhancedSQLStatement 增强的SQL语句结构
 type EnhancedSQLStatement struct {
-	Type           string                 // SQL类型：SELECT, INSERT, UPDATE, DELETE
-	Tables         []string               // 涉及的表
-	Columns        []string               // 涉及的列
-	Conditions     map[string]interface{} // WHERE条件
-	JoinTables     []JoinInfo             // JOIN信息
-	SubQueries     []*EnhancedSQLStatement // 子查询
-	GroupBy        []string               // GROUP BY列
-	OrderBy        []OrderByInfo          // ORDER BY信息
-	Having         string                 // HAVING条件
-	Limit          *LimitInfo             // LIMIT信息
-	IsComplex      bool                   // 是否为复杂查询
-	OriginalSQL    string                 // 原始SQL
-	Parameters     []interface{}          // 参数
+	Type               SQLType                // SQL类型：SELECT, INSERT, UPDATE, DELETE
+	Tables             []string               // 涉及的表
+	Columns            []string               // 涉及的列
+	Conditions         map[string]interface{} // WHERE条件
+	JoinTables         []JoinInfo             // JOIN信息
+	SubQueries         []*EnhancedSQLStatement // 子查询
+	GroupBy            []string               // GROUP BY列
+	OrderBy            []OrderByInfo          // ORDER BY信息
+	Having             string                 // HAVING条件
+	Limit              *LimitInfo             // LIMIT信息
+	IsComplex          bool                   // 是否为复杂查询
+	OriginalSQL        string                 // 原始SQL
+	Parameters         []interface{}          // 参数
+	PostgreSQLFeatures map[string]interface{} // PostgreSQL 特定功能
 }
 
 // JoinInfo JOIN信息
@@ -83,19 +84,29 @@ func (p *EnhancedSQLParser) Parse(sql string) (*EnhancedSQLStatement, error) {
 	sqlUpper := strings.ToUpper(sql)
 	switch {
 	case strings.HasPrefix(sqlUpper, "SELECT"):
-		stmt.Type = "SELECT"
+		stmt.Type = SQLTypeSelect
 		return p.parseSelect(sql, stmt)
 	case strings.HasPrefix(sqlUpper, "INSERT"):
-		stmt.Type = "INSERT"
+		stmt.Type = SQLTypeInsert
 		return p.parseInsert(sql, stmt)
 	case strings.HasPrefix(sqlUpper, "UPDATE"):
-		stmt.Type = "UPDATE"
+		stmt.Type = SQLTypeUpdate
 		return p.parseUpdate(sql, stmt)
 	case strings.HasPrefix(sqlUpper, "DELETE"):
-		stmt.Type = "DELETE"
+		stmt.Type = SQLTypeDelete
 		return p.parseDelete(sql, stmt)
+	case strings.HasPrefix(sqlUpper, "CREATE"):
+		stmt.Type = SQLTypeCreate
+		return p.parseCreate(sql, stmt)
+	case strings.HasPrefix(sqlUpper, "DROP"):
+		stmt.Type = SQLTypeDrop
+		return p.parseDrop(sql, stmt)
+	case strings.HasPrefix(sqlUpper, "ALTER"):
+		stmt.Type = SQLTypeAlter
+		return p.parseAlter(sql, stmt)
 	default:
-		return nil, fmt.Errorf("unsupported SQL type")
+		stmt.Type = SQLTypeOther
+		return stmt, nil
 	}
 }
 
@@ -474,4 +485,40 @@ func (p *EnhancedSQLParser) extractLimit(sql string) (*LimitInfo, error) {
 	}
 	
 	return nil, nil
+}
+
+// parseCreate 解析CREATE语句
+func (p *EnhancedSQLParser) parseCreate(sql string, stmt *EnhancedSQLStatement) (*EnhancedSQLStatement, error) {
+	// CREATE TABLE table_name (columns...)
+	createTableRegex := regexp.MustCompile(`(?i)CREATE\s+TABLE\s+(\w+)`)
+	matches := createTableRegex.FindStringSubmatch(sql)
+	if len(matches) > 1 {
+		stmt.Tables = []string{matches[1]}
+	}
+	
+	return stmt, nil
+}
+
+// parseDrop 解析DROP语句
+func (p *EnhancedSQLParser) parseDrop(sql string, stmt *EnhancedSQLStatement) (*EnhancedSQLStatement, error) {
+	// DROP TABLE table_name
+	dropTableRegex := regexp.MustCompile(`(?i)DROP\s+TABLE\s+(\w+)`)
+	matches := dropTableRegex.FindStringSubmatch(sql)
+	if len(matches) > 1 {
+		stmt.Tables = []string{matches[1]}
+	}
+	
+	return stmt, nil
+}
+
+// parseAlter 解析ALTER语句
+func (p *EnhancedSQLParser) parseAlter(sql string, stmt *EnhancedSQLStatement) (*EnhancedSQLStatement, error) {
+	// ALTER TABLE table_name ...
+	alterTableRegex := regexp.MustCompile(`(?i)ALTER\s+TABLE\s+(\w+)`)
+	matches := alterTableRegex.FindStringSubmatch(sql)
+	if len(matches) > 1 {
+		stmt.Tables = []string{matches[1]}
+	}
+	
+	return stmt, nil
 }

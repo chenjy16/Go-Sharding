@@ -537,14 +537,37 @@ func (p *SQLParser) extractConditions(sql string) []Condition {
 func (p *SQLParser) extractJoinTables(sql string) []JoinTable {
 	var joinTables []JoinTable
 	
-	joinRegex := regexp.MustCompile(`(?i)(INNER\s+JOIN|LEFT\s+JOIN|RIGHT\s+JOIN|FULL\s+JOIN|JOIN)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+ON\s+([^WHERE^GROUP^ORDER^HAVING^LIMIT]+)`)
-	matches := joinRegex.FindAllStringSubmatch(sql, -1)
+	// 分步处理多个 JOIN
+	// 首先找到所有 JOIN 的位置
+	joinRegex := regexp.MustCompile(`(?i)(INNER\s+JOIN|LEFT\s+JOIN|RIGHT\s+JOIN|FULL\s+JOIN|JOIN)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+(?:[a-zA-Z_][a-zA-Z0-9_]*\s+)?ON\s+`)
+	joinPositions := joinRegex.FindAllStringIndex(sql, -1)
+	joinMatches := joinRegex.FindAllStringSubmatch(sql, -1)
 	
-	for _, match := range matches {
-		if len(match) >= 4 {
+	for i, match := range joinMatches {
+		if len(match) >= 3 {
 			joinType := strings.ToUpper(strings.TrimSpace(match[1]))
 			tableName := p.cleanTableName(match[2])
-			condition := strings.TrimSpace(match[3])
+			
+			// 找到 ON 子句的开始位置
+			onStart := joinPositions[i][1]
+			
+			// 找到下一个 JOIN 或 SQL 子句的位置作为结束位置
+			var onEnd int
+			if i+1 < len(joinPositions) {
+				onEnd = joinPositions[i+1][0]
+			} else {
+				// 查找其他 SQL 子句
+				endRegex := regexp.MustCompile(`(?i)\s+(WHERE|GROUP\s+BY|ORDER\s+BY|HAVING|LIMIT)`)
+				endMatch := endRegex.FindStringIndex(sql[onStart:])
+				if endMatch != nil {
+					onEnd = onStart + endMatch[0]
+				} else {
+					onEnd = len(sql)
+				}
+			}
+			
+			// 提取 ON 条件
+			condition := strings.TrimSpace(sql[onStart:onEnd])
 			
 			joinTables = append(joinTables, JoinTable{
 				Type:      joinType,
@@ -623,8 +646,26 @@ func (p *SQLParser) extractHaving(sql string) []Condition {
 
 // extractLimit 提取 LIMIT 子句
 func (p *SQLParser) extractLimit(sql string) *LimitClause {
-	regex := regexp.MustCompile(`(?i)LIMIT\s+(\d+)(?:\s+OFFSET\s+(\d+))?`)
-	matches := regex.FindStringSubmatch(sql)
+	// 首先检查 MySQL 风格的 LIMIT offset, count
+	mysqlRegex := regexp.MustCompile(`(?i)LIMIT\s+(\d+)\s*,\s*(\d+)`)
+	matches := mysqlRegex.FindStringSubmatch(sql)
+	if len(matches) > 2 {
+		limit := &LimitClause{}
+		
+		if offset, err := parseInt(matches[1]); err == nil {
+			limit.Offset = offset
+		}
+		
+		if count, err := parseInt(matches[2]); err == nil {
+			limit.Count = count
+		}
+		
+		return limit
+	}
+	
+	// 然后检查标准的 LIMIT count [OFFSET offset]
+	standardRegex := regexp.MustCompile(`(?i)LIMIT\s+(\d+)(?:\s+OFFSET\s+(\d+))?`)
+	matches = standardRegex.FindStringSubmatch(sql)
 	if len(matches) > 1 {
 		limit := &LimitClause{}
 		
@@ -640,23 +681,6 @@ func (p *SQLParser) extractLimit(sql string) *LimitClause {
 			if offset, err := parseInt(matches[2]); err == nil {
 				limit.Offset = offset
 			}
-		}
-		
-		return limit
-	}
-	
-	// 检查 MySQL 风格的 LIMIT offset, count
-	regex = regexp.MustCompile(`(?i)LIMIT\s+(\d+)\s*,\s*(\d+)`)
-	matches = regex.FindStringSubmatch(sql)
-	if len(matches) > 2 {
-		limit := &LimitClause{}
-		
-		if offset, err := parseInt(matches[1]); err == nil {
-			limit.Offset = offset
-		}
-		
-		if count, err := parseInt(matches[2]); err == nil {
-			limit.Count = count
 		}
 		
 		return limit

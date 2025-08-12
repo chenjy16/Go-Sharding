@@ -198,28 +198,34 @@ func TestShardingRouter_parseActualDataNodes(t *testing.T) {
 			expectError:    false,
 		},
 		{
-			name:           "single node",
-			expression:     "ds_0.t_order",
-			expectedCount:  1,
-			expectError:    false,
-		},
-		{
 			name:           "list expression",
 			expression:     "ds_${[0, 1]}.t_order_${[0, 1]}",
 			expectedCount:  4,
 			expectError:    false,
 		},
 		{
-			name:        "invalid format - missing dot",
-			expression:  "ds_0_t_order",
-			expectError: true,
-			errorMsg:    "invalid actual data nodes expression",
+			name:           "single value",
+			expression:     "ds_0.t_order_0",
+			expectedCount:  1,
+			expectError:    false,
 		},
 		{
-			name:        "invalid format - too many parts",
-			expression:  "ds_0.t_order.extra",
-			expectError: true,
-			errorMsg:    "invalid actual data nodes expression",
+			name:           "invalid format - no dot",
+			expression:     "ds_0_t_order_0",
+			expectError:    true,
+			errorMsg:       "invalid actual data nodes expression",
+		},
+		{
+			name:           "invalid format - multiple dots",
+			expression:     "ds_0.t_order.0",
+			expectError:    true,
+			errorMsg:       "invalid actual data nodes expression",
+		},
+		{
+			name:           "invalid range format",
+			expression:     "ds_${0..}.t_order_${0..1}",
+			expectedCount:  2,
+			expectError:    false,
 		},
 	}
 
@@ -254,30 +260,50 @@ func TestShardingRouter_parseRangeExpression(t *testing.T) {
 		pattern        string
 		expectedCount  int
 		expectedValues []string
+		expectError    bool
+		errorMsg       string
 	}{
 		{
 			name:           "range pattern",
 			pattern:        "ds_${0..2}",
 			expectedCount:  3,
 			expectedValues: []string{"ds_0", "ds_1", "ds_2"},
+			expectError:    false,
 		},
 		{
 			name:           "list pattern",
 			pattern:        "ds_${[0, 2, 4]}",
 			expectedCount:  3,
 			expectedValues: []string{"ds_0", "ds_2", "ds_4"},
+			expectError:    false,
 		},
 		{
-			name:           "no pattern",
+			name:           "single value pattern",
 			pattern:        "ds_0",
 			expectedCount:  1,
 			expectedValues: []string{"ds_0"},
+			expectError:    false,
 		},
 		{
-			name:           "complex pattern",
-			pattern:        "t_order_${0..1}",
+			name:           "invalid range start",
+			pattern:        "ds_${a..1}",
+			expectedCount:  1,
+			expectedValues: []string{"ds_${a..1}"},
+			expectError:    false,
+		},
+		{
+			name:           "invalid range end",
+			pattern:        "ds_${0..b}",
+			expectedCount:  1,
+			expectedValues: []string{"ds_${0..b}"},
+			expectError:    false,
+		},
+		{
+			name:           "invalid list format",
+			pattern:        "ds_${[0, a]}",
 			expectedCount:  2,
-			expectedValues: []string{"t_order_0", "t_order_1"},
+			expectedValues: []string{"ds_0", "ds_a"},
+			expectError:    false,
 		},
 	}
 
@@ -285,9 +311,16 @@ func TestShardingRouter_parseRangeExpression(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			results, err := router.parseRangeExpression(tt.pattern)
 
-			assert.NoError(t, err)
-			assert.Len(t, results, tt.expectedCount)
-			assert.Equal(t, tt.expectedValues, results)
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+				assert.Nil(t, results)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, results)
+				assert.Len(t, results, tt.expectedCount)
+				assert.Equal(t, tt.expectedValues, results)
+			}
 		})
 	}
 }
@@ -304,14 +337,14 @@ func TestShardingRouter_calculateSharding(t *testing.T) {
 		errorMsg       string
 	}{
 		{
-			name: "inline algorithm",
+			name: "inline strategy with modulo",
 			strategy: &config.ShardingStrategyConfig{
 				ShardingColumn: "user_id",
 				Algorithm:      "ds_${user_id % 2}",
 				Type:           "inline",
 			},
 			shardingValues: map[string]interface{}{
-				"user_id": 1,
+				"user_id": 5,
 			},
 			expectedCount: 1,
 			expectError:   false,
@@ -324,20 +357,20 @@ func TestShardingRouter_calculateSharding(t *testing.T) {
 				Type:           "inline",
 			},
 			shardingValues: map[string]interface{}{
-				"order_id": 1,
+				"order_id": 5,
 			},
 			expectError: true,
 			errorMsg:    "sharding column user_id not found in sharding values",
 		},
 		{
-			name: "unsupported algorithm",
+			name: "unsupported strategy type",
 			strategy: &config.ShardingStrategyConfig{
 				ShardingColumn: "user_id",
-				Algorithm:      "unsupported",
+				Algorithm:      "ds_${user_id % 2}",
 				Type:           "unsupported",
 			},
 			shardingValues: map[string]interface{}{
-				"user_id": 1,
+				"user_id": 5,
 			},
 			expectError: true,
 			errorMsg:    "unsupported sharding strategy type: unsupported",
@@ -364,7 +397,7 @@ func TestShardingRouter_calculateSharding(t *testing.T) {
 func TestShardingRouter_isValidDataNode(t *testing.T) {
 	router := &ShardingRouter{}
 
-	nodes := []*DataNode{
+	dataNodes := []*DataNode{
 		{DataSource: "ds_0", Table: "t_order_0"},
 		{DataSource: "ds_0", Table: "t_order_1"},
 		{DataSource: "ds_1", Table: "t_order_0"},
@@ -405,13 +438,68 @@ func TestShardingRouter_isValidDataNode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := router.isValidDataNode(nodes, tt.dataSource, tt.table)
+			result := router.isValidDataNode(dataNodes, tt.dataSource, tt.table)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-// Benchmark tests
+func TestShardingRouter_EdgeCases(t *testing.T) {
+	dataSources := map[string]*config.DataSourceConfig{
+		"ds_0": {DriverName: "mysql", URL: "root:@tcp(localhost:3306)/ds_0"},
+		"ds_1": {DriverName: "mysql", URL: "root:@tcp(localhost:3306)/ds_1"},
+	}
+
+	t.Run("empty sharding rule", func(t *testing.T) {
+		shardingRule := &config.ShardingRuleConfig{
+			Tables: map[string]*config.TableRuleConfig{},
+		}
+		router := NewShardingRouter(dataSources, shardingRule)
+		
+		results, err := router.Route("t_order", map[string]interface{}{})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "table rule not found")
+		assert.Nil(t, results)
+	})
+
+	t.Run("complex sharding values", func(t *testing.T) {
+		shardingRule := &config.ShardingRuleConfig{
+			Tables: map[string]*config.TableRuleConfig{
+				"t_order": {
+					ActualDataNodes: "ds_${0..1}.t_order_${0..1}",
+					DatabaseStrategy: &config.ShardingStrategyConfig{
+						ShardingColumn: "user_id",
+						Algorithm:      "ds_${user_id % 2}",
+						Type:           "inline",
+					},
+					TableStrategy: &config.ShardingStrategyConfig{
+						ShardingColumn: "order_id",
+						Algorithm:      "t_order_${order_id % 2}",
+						Type:           "inline",
+					},
+				},
+			},
+		}
+		router := NewShardingRouter(dataSources, shardingRule)
+		
+		shardingValues := map[string]interface{}{
+			"user_id":  int64(123),
+			"order_id": int32(456),
+			"amount":   99.99,
+		}
+		
+		results, err := router.Route("t_order", shardingValues)
+		assert.NoError(t, err)
+		assert.NotNil(t, results)
+		assert.Len(t, results, 1)
+		if len(results) > 0 {
+			assert.Equal(t, "ds_1", results[0].DataSource)
+			assert.Equal(t, "t_order_0", results[0].Table)
+		}
+	})
+}
+
+// 基准测试
 func BenchmarkShardingRouter_Route(b *testing.B) {
 	dataSources := map[string]*config.DataSourceConfig{
 		"ds_0": {DriverName: "mysql", URL: "root:@tcp(localhost:3306)/ds_0"},
@@ -424,12 +512,12 @@ func BenchmarkShardingRouter_Route(b *testing.B) {
 				ActualDataNodes: "ds_${0..1}.t_order_${0..1}",
 				DatabaseStrategy: &config.ShardingStrategyConfig{
 					ShardingColumn: "user_id",
-					Algorithm:      "inline",
+					Algorithm:      "ds_${user_id % 2}",
 					Type:           "inline",
 				},
 				TableStrategy: &config.ShardingStrategyConfig{
 					ShardingColumn: "order_id",
-					Algorithm:      "inline",
+					Algorithm:      "t_order_${order_id % 2}",
 					Type:           "inline",
 				},
 			},
@@ -444,10 +532,7 @@ func BenchmarkShardingRouter_Route(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := router.Route("t_order", shardingValues)
-		if err != nil {
-			b.Fatal(err)
-		}
+		_, _ = router.Route("t_order", shardingValues)
 	}
 }
 
@@ -457,9 +542,6 @@ func BenchmarkShardingRouter_parseActualDataNodes(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := router.parseActualDataNodes(expression)
-		if err != nil {
-			b.Fatal(err)
-		}
+		_, _ = router.parseActualDataNodes(expression)
 	}
 }

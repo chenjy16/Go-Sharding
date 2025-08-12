@@ -13,6 +13,14 @@ Go 语言分片数据库中间件
 - 支持 SQL 路由和重写
 - 支持结果合并
 - 支持监控和指标收集
+- **🆕 支持 PostgreSQL 数据库**
+  - JSONB 数据类型支持
+  - 数组类型支持
+  - 全文搜索（tsvector/tsquery）
+  - 窗口函数
+  - CTE（公共表表达式）
+  - RETURNING 子句
+  - 参数占位符转换（? → $1, $2, ...）
 
 ## 快速开始
 
@@ -165,6 +173,22 @@ go build -o bin/go-sharding-demo ./cmd/demo
 - `examples/basic/` - 基本使用示例
 - `examples/yaml_config/` - YAML 配置示例
 - `examples/base_transaction/` - BASE事务使用示例
+- `examples/postgresql/` - **🆕 PostgreSQL 使用示例**
+
+### PostgreSQL 快速开始
+
+```bash
+# 启动 PostgreSQL 集群
+docker-compose -f docker-compose-postgresql.yml up -d
+
+# 运行测试脚本
+./scripts/test-postgresql.sh
+
+# 运行 PostgreSQL 示例
+cd examples/postgresql && go run main.go
+```
+
+详细的 PostgreSQL 支持文档请参考 [README-PostgreSQL.md](README-PostgreSQL.md)
 
 ## 核心组件
 

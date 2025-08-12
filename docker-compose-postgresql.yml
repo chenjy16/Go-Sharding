@@ -1,0 +1,301 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 主数据库 0
+  postgres-ds0:
+    image: postgres:15
+    container_name: sharding-postgres-ds0
+    environment:
+      POSTGRES_DB: sharding_db_0
+      POSTGRES_USER: sharding_user
+      POSTGRES_PASSWORD: sharding_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_ds0_data:/var/lib/postgresql/data
+      - ./scripts/postgresql/init-ds0.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - sharding-network
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=4MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+
+  # PostgreSQL 主数据库 1
+  postgres-ds1:
+    image: postgres:15
+    container_name: sharding-postgres-ds1
+    environment:
+      POSTGRES_DB: sharding_db_1
+      POSTGRES_USER: sharding_user
+      POSTGRES_PASSWORD: sharding_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_ds1_data:/var/lib/postgresql/data
+      - ./scripts/postgresql/init-ds1.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - sharding-network
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=4MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+
+  # PostgreSQL 读写分离 - ds0 写库
+  postgres-ds0-write:
+    image: postgres:15
+    container_name: sharding-postgres-ds0-write
+    environment:
+      POSTGRES_DB: sharding_db_0
+      POSTGRES_USER: sharding_user
+      POSTGRES_PASSWORD: sharding_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_ds0_write_data:/var/lib/postgresql/data
+      - ./scripts/postgresql/init-ds0.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - sharding-network
+    command: >
+      postgres
+      -c wal_level=replica
+      -c max_wal_senders=3
+      -c wal_keep_size=64MB
+      -c hot_standby=on
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+
+  # PostgreSQL 读写分离 - ds0 读库 1
+  postgres-ds0-read1:
+    image: postgres:15
+    container_name: sharding-postgres-ds0-read1
+    environment:
+      POSTGRES_DB: sharding_db_0
+      POSTGRES_USER: sharding_user
+      POSTGRES_PASSWORD: sharding_password
+      PGUSER: postgres
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_ds0_read1_data:/var/lib/postgresql/data
+    networks:
+      - sharding-network
+    depends_on:
+      - postgres-ds0-write
+    command: >
+      bash -c "
+      until pg_basebackup -h postgres-ds0-write -D /var/lib/postgresql/data -U sharding_user -v -P -W; do
+        echo 'Waiting for master to be available...'
+        sleep 1
+      done
+      echo 'standby_mode = on' >> /var/lib/postgresql/data/recovery.conf
+      echo 'primary_conninfo = ''host=postgres-ds0-write port=5432 user=sharding_user''' >> /var/lib/postgresql/data/recovery.conf
+      postgres
+      "
+
+  # PostgreSQL 读写分离 - ds0 读库 2
+  postgres-ds0-read2:
+    image: postgres:15
+    container_name: sharding-postgres-ds0-read2
+    environment:
+      POSTGRES_DB: sharding_db_0
+      POSTGRES_USER: sharding_user
+      POSTGRES_PASSWORD: sharding_password
+      PGUSER: postgres
+    ports:
+      - "5436:5432"
+    volumes:
+      - postgres_ds0_read2_data:/var/lib/postgresql/data
+    networks:
+      - sharding-network
+    depends_on:
+      - postgres-ds0-write
+    command: >
+      bash -c "
+      until pg_basebackup -h postgres-ds0-write -D /var/lib/postgresql/data -U sharding_user -v -P -W; do
+        echo 'Waiting for master to be available...'
+        sleep 1
+      done
+      echo 'standby_mode = on' >> /var/lib/postgresql/data/recovery.conf
+      echo 'primary_conninfo = ''host=postgres-ds0-write port=5432 user=sharding_user''' >> /var/lib/postgresql/data/recovery.conf
+      postgres
+      "
+
+  # PostgreSQL 读写分离 - ds1 写库
+  postgres-ds1-write:
+    image: postgres:15
+    container_name: sharding-postgres-ds1-write
+    environment:
+      POSTGRES_DB: sharding_db_1
+      POSTGRES_USER: sharding_user
+      POSTGRES_PASSWORD: sharding_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5437:5432"
+    volumes:
+      - postgres_ds1_write_data:/var/lib/postgresql/data
+      - ./scripts/postgresql/init-ds1.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - sharding-network
+    command: >
+      postgres
+      -c wal_level=replica
+      -c max_wal_senders=3
+      -c wal_keep_size=64MB
+      -c hot_standby=on
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+
+  # PostgreSQL 读写分离 - ds1 读库 1
+  postgres-ds1-read1:
+    image: postgres:15
+    container_name: sharding-postgres-ds1-read1
+    environment:
+      POSTGRES_DB: sharding_db_1
+      POSTGRES_USER: sharding_user
+      POSTGRES_PASSWORD: sharding_password
+      PGUSER: postgres
+    ports:
+      - "5438:5432"
+    volumes:
+      - postgres_ds1_read1_data:/var/lib/postgresql/data
+    networks:
+      - sharding-network
+    depends_on:
+      - postgres-ds1-write
+    command: >
+      bash -c "
+      until pg_basebackup -h postgres-ds1-write -D /var/lib/postgresql/data -U sharding_user -v -P -W; do
+        echo 'Waiting for master to be available...'
+        sleep 1
+      done
+      echo 'standby_mode = on' >> /var/lib/postgresql/data/recovery.conf
+      echo 'primary_conninfo = ''host=postgres-ds1-write port=5432 user=sharding_user''' >> /var/lib/postgresql/data/recovery.conf
+      postgres
+      "
+
+  # PostgreSQL 读写分离 - ds1 读库 2
+  postgres-ds1-read2:
+    image: postgres:15
+    container_name: sharding-postgres-ds1-read2
+    environment:
+      POSTGRES_DB: sharding_db_1
+      POSTGRES_USER: sharding_user
+      POSTGRES_PASSWORD: sharding_password
+      PGUSER: postgres
+    ports:
+      - "5439:5432"
+    volumes:
+      - postgres_ds1_read2_data:/var/lib/postgresql/data
+    networks:
+      - sharding-network
+    depends_on:
+      - postgres-ds1-write
+    command: >
+      bash -c "
+      until pg_basebackup -h postgres-ds1-write -D /var/lib/postgresql/data -U sharding_user -v -P -W; do
+        echo 'Waiting for master to be available...'
+        sleep 1
+      done
+      echo 'standby_mode = on' >> /var/lib/postgresql/data/recovery.conf
+      echo 'primary_conninfo = ''host=postgres-ds1-write port=5432 user=sharding_user''' >> /var/lib/postgresql/data/recovery.conf
+      postgres
+      "
+
+  # pgAdmin 管理界面
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: sharding-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./scripts/postgresql/servers.json:/pgadmin4/servers.json
+    networks:
+      - sharding-network
+    depends_on:
+      - postgres-ds0
+      - postgres-ds1
+
+  # PostgreSQL 监控 - Prometheus
+  postgres-exporter-ds0:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: sharding-postgres-exporter-ds0
+    environment:
+      DATA_SOURCE_NAME: "postgresql://sharding_user:sharding_password@postgres-ds0:5432/sharding_db_0?sslmode=disable"
+    ports:
+      - "9187:9187"
+    networks:
+      - sharding-network
+    depends_on:
+      - postgres-ds0
+
+  postgres-exporter-ds1:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: sharding-postgres-exporter-ds1
+    environment:
+      DATA_SOURCE_NAME: "postgresql://sharding_user:sharding_password@postgres-ds1:5432/sharding_db_1?sslmode=disable"
+    ports:
+      - "9188:9187"
+    networks:
+      - sharding-network
+    depends_on:
+      - postgres-ds1
+
+volumes:
+  postgres_ds0_data:
+    driver: local
+  postgres_ds1_data:
+    driver: local
+  postgres_ds0_write_data:
+    driver: local
+  postgres_ds0_read1_data:
+    driver: local
+  postgres_ds0_read2_data:
+    driver: local
+  postgres_ds1_write_data:
+    driver: local
+  postgres_ds1_read1_data:
+    driver: local
+  postgres_ds1_read2_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  sharding-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

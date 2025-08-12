@@ -245,7 +245,11 @@ func (r *ShardingRouter) evaluateInlineExpression(algorithm, shardingColumn stri
 	switch v := shardingValue.(type) {
 	case int:
 		intValue = v
+	case int32:
+		intValue = int(v)
 	case int64:
+		intValue = int(v)
+	case float32:
 		intValue = int(v)
 	case float64:
 		intValue = int(v)

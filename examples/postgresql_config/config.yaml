@@ -1,0 +1,204 @@
+dataSources:
+  ds0:
+    driverName: postgres
+    url: "postgres://username:password@localhost:5432/sharding_db_0?sslmode=disable"
+    maxOpenConns: 10
+    maxIdleConns: 5
+    connMaxLifetime: 300
+  ds1:
+    driverName: postgres
+    url: "postgres://username:password@localhost:5433/sharding_db_1?sslmode=disable"
+    maxOpenConns: 10
+    maxIdleConns: 5
+    connMaxLifetime: 300
+
+shardingRule:
+  tables:
+    user:
+      actualDataNodes: "ds${0..1}.user_${0..1}"
+      databaseShardingStrategy:
+        shardingColumn: user_id
+        algorithmExpression: "ds${user_id % 2}"
+      tableShardingStrategy:
+        shardingColumn: user_id
+        algorithmExpression: "user_${user_id % 2}"
+    order:
+      actualDataNodes: "ds${0..1}.order_${0..3}"
+      databaseShardingStrategy:
+        shardingColumn: user_id
+        algorithmExpression: "ds${user_id % 2}"
+      tableShardingStrategy:
+        shardingColumn: order_id
+        algorithmExpression: "order_${order_id % 4}"
+
+readWriteSplitting:
+  enabled: true
+  dataSources:
+    ds0:
+      writeDataSource: ds0_write
+      readDataSources: ["ds0_read1", "ds0_read2"]
+      loadBalanceAlgorithm: "round_robin"
+    ds1:
+      writeDataSource: ds1_write
+      readDataSources: ["ds1_read1", "ds1_read2"]
+      loadBalanceAlgorithm: "round_robin"
+
+# PostgreSQL 特定配置
+postgresql:
+  # 启用 PostgreSQL 特定功能
+  enableAdvancedFeatures: true
+  
+  # 数组类型支持
+  arrayTypeSupport: true
+  
+  # JSON/JSONB 支持
+  jsonSupport: true
+  
+  # 全文搜索支持
+  fullTextSearchSupport: true
+  
+  # 窗口函数支持
+  windowFunctionSupport: true
+  
+  # CTE (Common Table Expressions) 支持
+  cteSupport: true
+  
+  # RETURNING 子句支持
+  returningClauseSupport: true
+  
+  # 自定义数据类型支持
+  customDataTypeSupport: true
+  
+  # 扩展函数支持
+  extensionFunctionSupport: true
+  
+  # 分区表支持
+  partitionTableSupport: true
+  
+  # 继承表支持
+  inheritanceSupport: true
+
+# 事务配置
+transaction:
+  # 事务类型：LOCAL, XA, BASE
+  type: "LOCAL"
+  
+  # 事务超时时间（秒）
+  timeout: 30
+  
+  # 是否启用事务日志
+  enableTransactionLog: true
+  
+  # PostgreSQL 特定事务配置
+  postgresql:
+    # 隔离级别：READ_UNCOMMITTED, READ_COMMITTED, REPEATABLE_READ, SERIALIZABLE
+    isolationLevel: "READ_COMMITTED"
+    
+    # 是否启用可序列化快照隔离
+    enableSSI: false
+    
+    # 死锁检测超时时间（毫秒）
+    deadlockTimeout: 1000
+
+# SQL 解析配置
+sqlParser:
+  # 是否启用 SQL 缓存
+  enableSQLCache: true
+  
+  # SQL 缓存大小
+  sqlCacheSize: 1000
+  
+  # PostgreSQL 特定解析配置
+  postgresql:
+    # 是否启用严格模式
+    strictMode: true
+    
+    # 是否支持 PostgreSQL 扩展语法
+    enableExtendedSyntax: true
+    
+    # 是否启用函数解析
+    enableFunctionParsing: true
+    
+    # 是否启用操作符解析
+    enableOperatorParsing: true
+
+# 执行引擎配置
+executionEngine:
+  # 最大连接数
+  maxConnections: 100
+  
+  # 查询超时时间（秒）
+  queryTimeout: 60
+  
+  # 是否启用并行执行
+  enableParallelExecution: true
+  
+  # 并行度
+  parallelism: 4
+  
+  # PostgreSQL 特定执行配置
+  postgresql:
+    # 是否启用预编译语句
+    enablePreparedStatement: true
+    
+    # 预编译语句缓存大小
+    preparedStatementCacheSize: 100
+    
+    # 是否启用批量操作
+    enableBatchOperation: true
+    
+    # 批量操作大小
+    batchSize: 1000
+
+# 监控配置
+monitoring:
+  # 是否启用监控
+  enabled: true
+  
+  # 监控端口
+  port: 8080
+  
+  # 监控路径
+  path: "/metrics"
+  
+  # PostgreSQL 特定监控
+  postgresql:
+    # 是否监控连接池
+    enableConnectionPoolMonitoring: true
+    
+    # 是否监控查询性能
+    enableQueryPerformanceMonitoring: true
+    
+    # 是否监控事务
+    enableTransactionMonitoring: true
+    
+    # 慢查询阈值（毫秒）
+    slowQueryThreshold: 1000
+
+# 日志配置
+logging:
+  # 日志级别：DEBUG, INFO, WARN, ERROR
+  level: "INFO"
+  
+  # 日志格式：TEXT, JSON
+  format: "JSON"
+  
+  # 是否启用 SQL 日志
+  enableSQLLog: true
+  
+  # 是否启用错误日志
+  enableErrorLog: true
+  
+  # PostgreSQL 特定日志配置
+  postgresql:
+    # 是否记录连接事件
+    logConnections: true
+    
+    # 是否记录断开连接事件
+    logDisconnections: true
+    
+    # 是否记录语句执行时间
+    logStatementDuration: true
+    
+    # 最小记录时间（毫秒）
+    minLogDuration: 100

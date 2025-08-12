@@ -152,6 +152,15 @@ func (r *SQLRewriter) ExtractLogicTables(sql string, configuredTables map[string
 		}
 	}
 	
+	// 从 JOIN 表中提取配置的逻辑表
+	for _, joinTable := range stmt.JoinTables {
+		if configuredTables[joinTable.Table] {
+			if !r.contains(logicTables, joinTable.Table) {
+				logicTables = append(logicTables, joinTable.Table)
+			}
+		}
+	}
+	
 	return logicTables
 }
 
