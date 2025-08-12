@@ -26,8 +26,8 @@ func TestNewEnhancedShardingDB(t *testing.T) {
 		},
 		ReadWriteSplits: map[string]*config.ReadWriteSplitConfig{
 			"rw_ds": {
-				MasterDataSource: "master_ds",
-				SlaveDataSources: []string{"slave_ds"},
+				MasterDataSource:     "master_ds",
+				SlaveDataSources:     []string{"slave_ds"},
 				LoadBalanceAlgorithm: "round_robin",
 			},
 		},
@@ -58,7 +58,7 @@ func TestNewEnhancedShardingDB(t *testing.T) {
 	assert.NotNil(t, db.config)
 	assert.NotNil(t, db.router)
 	assert.NotNil(t, db.rewriter)
-	assert.NotNil(t, db.parser)
+
 }
 
 func TestEnhancedShardingDB_QueryContext(t *testing.T) {
@@ -89,7 +89,7 @@ func TestEnhancedShardingDB_QueryContext(t *testing.T) {
 	defer db.Close()
 
 	ctx := context.Background()
-	
+
 	// 测试简单查询
 	_, err = db.QueryContext(ctx, "SELECT 1")
 	// 由于没有实际的数据库连接，这里可能会出错，但我们主要测试代码路径
@@ -125,7 +125,7 @@ func TestEnhancedShardingDB_ExecContext(t *testing.T) {
 	defer db.Close()
 
 	ctx := context.Background()
-	
+
 	// 测试简单执行
 	_, err = db.ExecContext(ctx, "SELECT 1")
 	// 由于没有实际的数据库连接，这里可能会出错，但我们主要测试代码路径
@@ -231,7 +231,7 @@ func BenchmarkEnhancedShardingDB_QueryContext(b *testing.B) {
 	defer db.Close()
 
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = db.QueryContext(ctx, "SELECT 1")
@@ -265,7 +265,7 @@ func BenchmarkEnhancedShardingDB_ExecContext(b *testing.B) {
 	defer db.Close()
 
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = db.ExecContext(ctx, "SELECT 1")

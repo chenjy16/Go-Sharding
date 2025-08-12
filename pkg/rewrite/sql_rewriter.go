@@ -10,13 +10,13 @@ import (
 
 // SQLRewriter SQL 重写器
 type SQLRewriter struct {
-	parser *parser.SQLParser
+	parserFactory *parser.ParserFactory
 }
 
 // NewSQLRewriter 创建 SQL 重写器
 func NewSQLRewriter() *SQLRewriter {
 	return &SQLRewriter{
-		parser: parser.NewSQLParser(),
+		parserFactory: parser.DefaultParserFactory,
 	}
 }
 
@@ -128,8 +128,8 @@ func (r *SQLRewriter) generateUnionSQL(originalSQL, logicTable string, actualTab
 func (r *SQLRewriter) ExtractLogicTables(sql string, configuredTables map[string]bool) []string {
 	var logicTables []string
 	
-	// 使用增强的 SQL 解析器提取表名
-	stmt, err := r.parser.Parse(sql)
+	// 使用解析器工厂的默认解析器提取表名
+	stmt, err := r.parserFactory.Parse(sql)
 	if err != nil {
 		// 如果解析失败，回退到简单的单词提取方法
 		words := r.extractWords(sql)

@@ -19,7 +19,7 @@ type EnhancedShardingDB struct {
 	readWriteSplitters map[string]*readwrite.ReadWriteSplitter
 	router           *routing.ShardingRouter
 	rewriter         *rewrite.SQLRewriter
-	parser           *parser.SQLParser
+	parserFactory    *parser.ParserFactory
 	mutex            sync.RWMutex
 }
 
@@ -31,7 +31,7 @@ func NewEnhancedShardingDB(cfg *config.ShardingConfig) (*EnhancedShardingDB, err
 		readWriteSplitters: make(map[string]*readwrite.ReadWriteSplitter),
 		router:             routing.NewShardingRouter(cfg.DataSources, cfg.ShardingRule),
 		rewriter:           rewrite.NewSQLRewriter(),
-		parser:             parser.NewSQLParser(),
+		parserFactory:      parser.DefaultParserFactory,
 	}
 
 	// 初始化数据源连接
@@ -93,7 +93,7 @@ func (db *EnhancedShardingDB) Query(query string, args ...interface{}) (*Enhance
 // QueryContext 执行查询语句（带上下文）
 func (db *EnhancedShardingDB) QueryContext(ctx context.Context, query string, args ...interface{}) (*EnhancedShardingRows, error) {
 	// 解析 SQL 语句
-	stmt, err := db.parser.Parse(query)
+	stmt, err := db.parserFactory.Parse(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse SQL: %w", err)
 	}
@@ -156,7 +156,7 @@ func (db *EnhancedShardingDB) Exec(query string, args ...interface{}) (*Enhanced
 // ExecContext 执行非查询语句（带上下文）
 func (db *EnhancedShardingDB) ExecContext(ctx context.Context, query string, args ...interface{}) (*EnhancedShardingResult, error) {
 	// 解析 SQL 语句
-	stmt, err := db.parser.Parse(query)
+	stmt, err := db.parserFactory.Parse(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse SQL: %w", err)
 	}

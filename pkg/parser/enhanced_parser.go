@@ -511,6 +511,15 @@ func (p *EnhancedSQLParser) parseDrop(sql string, stmt *EnhancedSQLStatement) (*
 	return stmt, nil
 }
 
+// ExtractTables 公共接口：提取表名
+func (p *EnhancedSQLParser) ExtractTables(sql string) []string {
+	tables, err := p.extractTables(sql)
+	if err != nil {
+		return []string{}
+	}
+	return tables
+}
+
 // parseAlter 解析ALTER语句
 func (p *EnhancedSQLParser) parseAlter(sql string, stmt *EnhancedSQLStatement) (*EnhancedSQLStatement, error) {
 	// ALTER TABLE table_name ...

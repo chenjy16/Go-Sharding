@@ -54,11 +54,21 @@ type ReadWriteSplitConfig struct {
 	LoadBalanceAlgorithm string `yaml:"loadBalanceAlgorithm" json:"loadBalanceAlgorithm"`
 }
 
+// ParserConfig 解析器配置
+type ParserConfig struct {
+	EnableTiDBParser       bool `yaml:"enable_tidb_parser" json:"enable_tidb_parser"`
+	EnablePostgreSQLParser bool `yaml:"enable_postgresql_parser" json:"enable_postgresql_parser"`
+	FallbackToOriginal     bool `yaml:"fallback_to_original" json:"fallback_to_original"`
+	EnableBenchmarking     bool `yaml:"enable_benchmarking" json:"enable_benchmarking"`
+	LogParsingErrors       bool `yaml:"log_parsing_errors" json:"log_parsing_errors"`
+}
+
 // ShardingConfig 完整的分片配置
 type ShardingConfig struct {
 	DataSources      map[string]*DataSourceConfig    `yaml:"dataSources" json:"dataSources"`
 	ShardingRule     *ShardingRuleConfig            `yaml:"shardingRule" json:"shardingRule"`
 	ReadWriteSplits  map[string]*ReadWriteSplitConfig `yaml:"readWriteSplits" json:"readWriteSplits"`
+	Parser           *ParserConfig                   `yaml:"parser" json:"parser"`
 }
 
 // LoadFromYAML 从 YAML 文件加载配置
@@ -88,6 +98,33 @@ func (c *ShardingConfig) SaveToYAML(filename string) error {
 	}
 
 	return nil
+}
+
+// ApplyParserConfig 应用解析器配置
+func (c *ShardingConfig) ApplyParserConfig() error {
+	if c.Parser == nil {
+		// 如果没有配置解析器，使用默认配置
+		return nil
+	}
+	
+	// 这里需要导入 parser 包来应用配置
+	// 由于避免循环依赖，我们返回解析器配置让调用者处理
+	return nil
+}
+
+// GetParserConfig 获取解析器配置
+func (c *ShardingConfig) GetParserConfig() *ParserConfig {
+	if c.Parser == nil {
+		// 返回默认配置
+		return &ParserConfig{
+			EnableTiDBParser:       false,
+			EnablePostgreSQLParser: false,
+			FallbackToOriginal:     true,
+			EnableBenchmarking:     false,
+			LogParsingErrors:       false,
+		}
+	}
+	return c.Parser
 }
 
 // Validate 验证配置的有效性

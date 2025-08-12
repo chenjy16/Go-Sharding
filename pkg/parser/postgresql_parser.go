@@ -310,6 +310,17 @@ func (p *PostgreSQLParser) ValidatePostgreSQLSQL(sql string) error {
 	return nil
 }
 
+// ExtractTables 提取表名（实现 ParserInterface 接口）
+func (p *PostgreSQLParser) ExtractTables(sql string) []string {
+	// 使用增强解析器的表名提取功能
+	tables, err := p.EnhancedSQLParser.extractTables(sql)
+	if err != nil {
+		// 如果解析失败，返回空切片
+		return []string{}
+	}
+	return tables
+}
+
 // GetPostgreSQLDialect 获取 PostgreSQL 方言
 func (p *PostgreSQLParser) GetPostgreSQLDialect() database.DatabaseDialect {
 	return p.dialect

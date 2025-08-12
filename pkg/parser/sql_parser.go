@@ -350,6 +350,11 @@ func (p *SQLParser) extractTablesFromAlter(sql string) []string {
 	return []string{}
 }
 
+// ExtractTables 公共接口：提取表名
+func (p *SQLParser) ExtractTables(sql string) []string {
+	return p.extractTables(sql)
+}
+
 // extractTables 通用表名提取（兼容旧接口）
 func (p *SQLParser) extractTables(sql string) []string {
 	stmt, err := p.Parse(sql)

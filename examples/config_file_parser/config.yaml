@@ -1,0 +1,32 @@
+# 解析器配置示例
+parser:
+  # 启用 TiDB 解析器作为默认解析器
+  enable_tidb_parser: true
+  # 启用 PostgreSQL 解析器
+  enable_postgresql_parser: false
+  # 当解析失败时是否回退到原始解析器
+  fallback_to_original: true
+  # 启用性能基准测试
+  enable_benchmarking: true
+  # 记录解析错误
+  log_parsing_errors: true
+
+# 数据源配置（可选）
+datasources:
+  mysql_master:
+    driver_name: "mysql"
+    url: "user:password@tcp(localhost:3306)/sharding_db?charset=utf8mb4&parseTime=True&loc=Local"
+    max_idle: 10
+    max_open: 100
+
+# 分片规则配置（可选）
+sharding_rules:
+  tables:
+    users:
+      actual_data_nodes: "ds_${0..1}.users_${0..1}"
+      database_strategy:
+        sharding_column: "user_id"
+        algorithm: "user_id % 2"
+      table_strategy:
+        sharding_column: "user_id"
+        algorithm: "user_id % 2"

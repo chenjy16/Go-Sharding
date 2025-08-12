@@ -1,0 +1,50 @@
+# TiDB 解析器配置示例
+parser:
+  # 启用 TiDB 解析器作为默认解析器
+  enable_tidb_parser: true
+  # 启用 PostgreSQL 解析器
+  enable_postgresql_parser: false
+  # 当解析失败时是否回退到原始解析器
+  fallback_to_original: true
+  # 启用性能基准测试
+  enable_benchmarking: true
+  # 记录解析错误
+  log_parsing_errors: true
+
+# 数据源配置
+datasources:
+  mysql_master:
+    driver_name: "mysql"
+    url: "user:password@tcp(localhost:3306)/sharding_db?charset=utf8mb4&parseTime=True&loc=Local"
+    max_idle: 10
+    max_open: 100
+  
+  mysql_slave:
+    driver_name: "mysql"
+    url: "user:password@tcp(localhost:3307)/sharding_db?charset=utf8mb4&parseTime=True&loc=Local"
+    max_idle: 5
+    max_open: 50
+
+# 分片规则配置
+sharding_rule:
+  tables:
+    users:
+      actual_data_nodes: "mysql_master.users_0,mysql_master.users_1"
+      table_strategy:
+        type: "inline"
+        sharding_column: "id"
+        algorithm_expression: "users_${id % 2}"
+    
+    orders:
+      actual_data_nodes: "mysql_master.orders_0,mysql_master.orders_1,mysql_master.orders_2,mysql_master.orders_3"
+      table_strategy:
+        type: "inline"
+        sharding_column: "user_id"
+        algorithm_expression: "orders_${user_id % 4}"
+
+# 读写分离配置
+read_write_splits:
+  mysql_rw:
+    write_data_source: "mysql_master"
+    read_data_sources: ["mysql_slave"]
+    load_balance_algorithm: "round_robin"

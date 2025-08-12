@@ -100,6 +100,19 @@ transaction:
     # 死锁检测超时时间（毫秒）
     deadlockTimeout: 1000
 
+# 解析器配置
+parser:
+  # 启用 PostgreSQL 解析器（针对 PostgreSQL 数据库）
+  enable_tidb_parser: false
+  # 启用 PostgreSQL 解析器
+  enable_postgresql_parser: true
+  # 当解析失败时是否回退到原始解析器
+  fallback_to_original: true
+  # 启用性能基准测试
+  enable_benchmarking: true
+  # 记录解析错误
+  log_parsing_errors: true
+
 # SQL 解析配置
 sqlParser:
   # 是否启用 SQL 缓存
