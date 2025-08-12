@@ -376,7 +376,7 @@ func (tm *TransactionManagerImpl) Begin(ctx context.Context, txType TransactionT
 		tx = NewXATransaction(txID, tm.xaCoordinator)
 	case BaseTransaction:
 		// BASE 事务的实现
-		return nil, fmt.Errorf("BASE transaction not implemented yet")
+		tx = NewBASETransaction(txID)
 	default:
 		return nil, fmt.Errorf("unsupported transaction type: %v", txType)
 	}

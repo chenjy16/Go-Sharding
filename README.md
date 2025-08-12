@@ -164,6 +164,7 @@ go build -o bin/go-sharding-demo ./cmd/demo
 
 - `examples/basic/` - 基本使用示例
 - `examples/yaml_config/` - YAML 配置示例
+- `examples/base_transaction/` - BASE事务使用示例
 
 ## 核心组件
 
@@ -192,8 +193,10 @@ go build -o bin/go-sharding-demo ./cmd/demo
 - 分布式唯一 ID 生成
 
 ### 6. 事务管理 (pkg/transaction)
-- 分布式事务支持
-- 两阶段提交
+- 本地事务支持
+- XA分布式事务（两阶段提交）
+- BASE事务（最终一致性）
+- 事务状态管理和监控
 
 ### 7. 监控指标 (pkg/monitoring)
 - 性能指标收集

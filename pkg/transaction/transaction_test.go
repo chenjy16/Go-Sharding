@@ -208,9 +208,118 @@ func TestTransactionManager_BeginBaseTransaction(t *testing.T) {
 	ctx := context.Background()
 
 	tx, err := tm.Begin(ctx, BaseTransaction)
-	assert.Error(t, err)
-	assert.Nil(t, tx)
-	assert.Contains(t, err.Error(), "not implemented")
+	assert.NoError(t, err)
+	assert.NotNil(t, tx)
+	assert.Equal(t, BaseTransaction, tx.GetType())
+	assert.Equal(t, StatusActive, tx.GetStatus())
+}
+
+func TestBASETransaction_Operations(t *testing.T) {
+	tx := NewBASETransaction("base-tx-1")
+	assert.NotNil(t, tx)
+	assert.Equal(t, "base-tx-1", tx.GetID())
+	assert.Equal(t, BaseTransaction, tx.GetType())
+	assert.Equal(t, StatusActive, tx.GetStatus())
+
+	// 测试添加操作
+	op := BASEOperation{
+		Type:       "INSERT",
+		SQL:        "INSERT INTO users (name) VALUES (?)",
+		DataSource: "db1",
+		Parameters: []interface{}{"test"},
+	}
+
+	err := tx.AddOperation(op)
+	assert.NoError(t, err)
+
+	operations := tx.GetOperations()
+	assert.Len(t, operations, 1)
+	assert.Equal(t, "INSERT", operations[0].Type)
+	assert.Equal(t, "PENDING", operations[0].Status)
+	assert.Equal(t, 3, operations[0].MaxRetries)
+}
+
+func TestBASETransaction_Compensations(t *testing.T) {
+	tx := NewBASETransaction("base-tx-2")
+
+	// 测试添加补偿操作
+	comp := BASECompensation{
+		OperationID: "op1",
+		SQL:         "DELETE FROM users WHERE id = ?",
+		DataSource:  "db1",
+		Parameters:  []interface{}{1},
+	}
+
+	err := tx.AddCompensation(comp)
+	assert.NoError(t, err)
+
+	compensations := tx.GetCompensations()
+	assert.Len(t, compensations, 1)
+	assert.Equal(t, "op1", compensations[0].OperationID)
+	assert.Equal(t, "PENDING", compensations[0].Status)
+}
+
+func TestBASETransaction_Commit(t *testing.T) {
+	tx := NewBASETransaction("base-tx-3")
+	ctx := context.Background()
+
+	// 添加一个操作
+	op := BASEOperation{
+		Type:       "UPDATE",
+		SQL:        "UPDATE users SET status = ?",
+		DataSource: "db1",
+		Parameters: []interface{}{"active"},
+	}
+	err := tx.AddOperation(op)
+	assert.NoError(t, err)
+
+	// 提交事务
+	err = tx.Commit(ctx)
+	assert.NoError(t, err)
+
+	// 等待异步执行完成
+	time.Sleep(100 * time.Millisecond)
+
+	// 检查状态
+	status := tx.GetStatus()
+	assert.True(t, status == StatusCommitted || status == StatusPrepared)
+}
+
+func TestBASETransaction_Rollback(t *testing.T) {
+	tx := NewBASETransaction("base-tx-4")
+	ctx := context.Background()
+
+	// 添加补偿操作
+	comp := BASECompensation{
+		OperationID: "op1",
+		SQL:         "ROLLBACK OPERATION",
+		DataSource:  "db1",
+	}
+	err := tx.AddCompensation(comp)
+	assert.NoError(t, err)
+
+	// 回滚事务
+	err = tx.Rollback(ctx)
+	assert.NoError(t, err)
+
+	// 等待异步执行完成
+	time.Sleep(100 * time.Millisecond)
+
+	// 检查状态
+	assert.Equal(t, StatusRolledBack, tx.GetStatus())
+}
+
+func TestBASETransaction_Timeout(t *testing.T) {
+	tx := NewBASETransaction("base-tx-5")
+
+	// 设置很短的超时时间
+	tx.SetTimeout(1 * time.Millisecond)
+
+	// 等待超时
+	time.Sleep(10 * time.Millisecond)
+
+	// 检查是否过期
+	assert.True(t, tx.IsExpired())
 }
 
 func TestTransactionManager_BeginLocalTransactionWithoutDataSource(t *testing.T) {

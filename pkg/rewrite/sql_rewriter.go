@@ -2,6 +2,7 @@ package rewrite
 
 import (
 	"fmt"
+	"go-sharding/pkg/parser"
 	"go-sharding/pkg/routing"
 	"regexp"
 	"strings"
@@ -9,11 +10,14 @@ import (
 
 // SQLRewriter SQL 重写器
 type SQLRewriter struct {
+	parser *parser.SQLParser
 }
 
 // NewSQLRewriter 创建 SQL 重写器
 func NewSQLRewriter() *SQLRewriter {
-	return &SQLRewriter{}
+	return &SQLRewriter{
+		parser: parser.NewSQLParser(),
+	}
 }
 
 // RewriteContext 重写上下文
@@ -124,14 +128,26 @@ func (r *SQLRewriter) generateUnionSQL(originalSQL, logicTable string, actualTab
 func (r *SQLRewriter) ExtractLogicTables(sql string, configuredTables map[string]bool) []string {
 	var logicTables []string
 	
-	// 简单的表名提取，支持常见的 SQL 语句
-	// 这里可以使用更复杂的 SQL 解析器
-	words := r.extractWords(sql)
+	// 使用增强的 SQL 解析器提取表名
+	stmt, err := r.parser.Parse(sql)
+	if err != nil {
+		// 如果解析失败，回退到简单的单词提取方法
+		words := r.extractWords(sql)
+		for _, word := range words {
+			if configuredTables[word] {
+				if !r.contains(logicTables, word) {
+					logicTables = append(logicTables, word)
+				}
+			}
+		}
+		return logicTables
+	}
 	
-	for _, word := range words {
-		if configuredTables[word] {
-			if !r.contains(logicTables, word) {
-				logicTables = append(logicTables, word)
+	// 从解析结果中提取配置的逻辑表
+	for _, table := range stmt.Tables {
+		if configuredTables[table] {
+			if !r.contains(logicTables, table) {
+				logicTables = append(logicTables, table)
 			}
 		}
 	}
