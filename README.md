@@ -1,69 +1,69 @@
 # Go-Sharding
 
-Go 语言分片数据库中间件 - 基于 Apache ShardingSphere 设计理念的高性能分片解决方案
+Go Language Database Sharding Middleware - High-Performance Sharding Solution Based on Apache ShardingSphere Design Concepts
 
-## 📋 目录
+## 📋 Table of Contents
 
-- [功能特性](#功能特性)
-- [快速开始](#快速开始)
-- [架构设计](#架构设计)
-- [核心组件](#核心组件)
-- [数据库支持](#数据库支持)
-  - [MySQL 支持](#mysql-支持)
-  - [PostgreSQL 支持](#postgresql-支持)
-- [SQL 解析器](#sql-解析器)
-  - [解析器配置和启用](#解析器配置和启用)
-- [分片策略](#分片策略)
-- [读写分离](#读写分离)
-- [事务管理](#事务管理)
-- [配置说明](#配置说明)
-- [示例代码](#示例代码)
-- [性能优化](#性能优化)
-- [测试覆盖](#测试覆盖)
-- [部署运维](#部署运维)
-- [开发指南](#开发指南)
-- [贡献指南](#贡献指南)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Architecture Design](#architecture-design)
+- [Core Components](#core-components)
+- [Database Support](#database-support)
+  - [MySQL Support](#mysql-support)
+  - [PostgreSQL Support](#postgresql-support)
+- [SQL Parser](#sql-parser)
+  - [Parser Configuration and Enabling](#parser-configuration-and-enabling)
+- [Sharding Strategies](#sharding-strategies)
+- [Read-Write Splitting](#read-write-splitting)
+- [Transaction Management](#transaction-management)
+- [Configuration](#configuration)
+- [Example Code](#example-code)
+- [Performance Optimization](#performance-optimization)
+- [Test Coverage](#test-coverage)
+- [Deployment & Operations](#deployment--operations)
+- [Development Guide](#development-guide)
+- [Contributing](#contributing)
 
-## 🚀 功能特性
+## 🚀 Features
 
-### 核心功能
-- ✅ **数据库分片和表分片**：支持水平分片，提高数据处理能力
-- ✅ **多种分片算法**：取模、范围、哈希、自定义算法
-- ✅ **跨分片查询和聚合**：智能路由和结果合并
-- ✅ **分布式主键生成**：Snowflake 算法保证全局唯一性
-- ✅ **读写分离**：主从数据库自动路由，提升性能
-- ✅ **分布式事务**：支持本地事务、XA事务、BASE事务
-- ✅ **SQL 路由和重写**：智能 SQL 解析和重写
-- ✅ **结果合并**：支持排序、分组、聚合、分页
-- ✅ **监控和指标收集**：完整的性能监控体系
+### Core Features
+- ✅ **Database and Table Sharding**: Support horizontal sharding to improve data processing capabilities
+- ✅ **Multiple Sharding Algorithms**: Modulo, range, hash, and custom algorithms
+- ✅ **Cross-Shard Queries and Aggregation**: Intelligent routing and result merging
+- ✅ **Distributed Primary Key Generation**: Snowflake algorithm ensures global uniqueness
+- ✅ **Read-Write Splitting**: Automatic routing for master-slave databases to improve performance
+- ✅ **Distributed Transactions**: Support local transactions, XA transactions, and BASE transactions
+- ✅ **SQL Routing and Rewriting**: Intelligent SQL parsing and rewriting
+- ✅ **Result Merging**: Support sorting, grouping, aggregation, and pagination
+- ✅ **Monitoring and Metrics Collection**: Complete performance monitoring system
 
-### 数据库支持
-- ✅ **MySQL**：完整支持，包括复杂查询和事务
-- ✅ **PostgreSQL**：全面支持，包括特有功能
-  - JSONB 数据类型支持
-  - 数组类型支持
-  - 全文搜索（tsvector/tsquery）
-  - 窗口函数
-  - CTE（公共表表达式）
-  - RETURNING 子句
-  - 参数占位符转换（? → $1, $2, ...）
+### Database Support
+- ✅ **MySQL**: Complete support including complex queries and transactions
+- ✅ **PostgreSQL**: Comprehensive support including unique features
+  - JSONB data type support
+  - Array type support
+  - Full-text search (tsvector/tsquery)
+  - Window functions
+  - CTE (Common Table Expressions)
+  - RETURNING clause
+  - Parameter placeholder conversion (? → $1, $2, ...)
 
-### 高级功能
-- ✅ **多解析器架构**：支持原生、TiDB、PostgreSQL、增强解析器
-- ✅ **智能路由**：基于分片键的自动路由
-- ✅ **连接池管理**：优化的数据库连接池
-- ✅ **健康检查**：实时监控数据源状态
-- ✅ **配置热更新**：支持运行时配置更新
+### Advanced Features
+- ✅ **Multi-Parser Architecture**: Support native, TiDB, PostgreSQL, and enhanced parsers
+- ✅ **Intelligent Routing**: Automatic routing based on sharding keys
+- ✅ **Connection Pool Management**: Optimized database connection pools
+- ✅ **Health Checks**: Real-time monitoring of data source status
+- ✅ **Hot Configuration Updates**: Support runtime configuration updates
 
-## 🏃‍♂️ 快速开始
+## 🏃‍♂️ Quick Start
 
-### 安装
+### Installation
 
 ```bash
 go get github.com/your-username/go-sharding
 ```
 
-### 基本使用
+### Basic Usage
 
 ```go
 package main
@@ -75,7 +75,7 @@ import (
 )
 
 func main() {
-    // 创建数据源配置
+    // Create data source configuration
     dataSources := map[string]*config.DataSourceConfig{
         "ds_0": {
             DriverName: "mysql",
@@ -91,7 +91,7 @@ func main() {
         },
     }
 
-    // 创建分片规则配置
+    // Create sharding rule configuration
     shardingRule := &config.ShardingRuleConfig{
         Tables: map[string]*config.TableRuleConfig{
             "t_user": {
@@ -110,184 +110,185 @@ func main() {
         },
     }
 
-    // 创建分片配置
+    // Create sharding configuration
     shardingConfig := &config.ShardingConfig{
         DataSources:  dataSources,
         ShardingRule: shardingRule,
     }
 
-    // 创建分片数据源
+    // Create sharding data source
     dataSource, err := sharding.NewShardingDataSource(shardingConfig)
     if err != nil {
-        log.Fatalf("创建分片数据源失败: %v", err)
+        log.Fatalf("Failed to create sharding data source: %v", err)
     }
     defer dataSource.Close()
 
-    // 获取数据库连接
+    // Get database connection
     db := dataSource.DB()
 
-    // 执行 SQL
-    result, err := db.Exec("INSERT INTO t_user (user_name, user_email) VALUES (?, ?)", "张三", "zhangsan@example.com")
+    // Execute SQL
+    result, err := db.Exec("INSERT INTO t_user (user_name, user_email) VALUES (?, ?)", "John Doe", "john@example.com")
     if err != nil {
-        log.Printf("插入失败: %v", err)
+        log.Printf("Insert failed: %v", err)
     }
 }
 ```
 
-### 运行演示
+### Run Demo
 
 ```bash
-# 构建演示程序
+# Build demo program
 go build -o bin/go-sharding-demo ./cmd/demo
 
-# 运行演示
+# Run demo
 ./bin/go-sharding-demo
 ```
 
-## 🏗️ 架构设计
+## 🏗️ Architecture Design
 
-### 整体架构
+### Overall Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    应用程序层                                │
+│                    Application Layer                        │
 ├─────────────────────────────────────────────────────────────┤
-│                Go-Sharding 中间件                           │
+│                Go-Sharding Middleware                       │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐ │
-│  │   路由引擎   │ │  SQL重写器  │ │  结果合并器  │ │ID生成器 │ │
+│  │ Routing     │ │ SQL         │ │ Result      │ │ ID      │ │
+│  │ Engine      │ │ Rewriter    │ │ Merger      │ │Generator│ │
 │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────┘ │
 │  ┌─────────────────────────────────────────────────────────┐ │
-│  │                配置管理器                                │ │
+│  │                Configuration Manager                     │ │
 │  └─────────────────────────────────────────────────────────┘ │
 ├─────────────────────────────────────────────────────────────┤
-│                  数据库驱动层                                │
+│                  Database Driver Layer                      │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐ │
-│  │   数据库1    │ │   数据库2    │ │   数据库3    │ │   ...   │ │
+│  │ Database 1  │ │ Database 2  │ │ Database 3  │ │   ...   │ │
 │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────┘ │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 核心设计原则
+### Core Design Principles
 
-1. **高性能**：优化的 SQL 解析和路由算法
-2. **高可用**：支持故障转移和负载均衡
-3. **易扩展**：模块化设计，支持自定义扩展
-4. **透明性**：对应用程序透明，无需修改业务代码
+1. **High Performance**: Optimized SQL parsing and routing algorithms
+2. **High Availability**: Support failover and load balancing
+3. **Easy Extension**: Modular design supporting custom extensions
+4. **Transparency**: Transparent to applications, no business code modification required
 
-## 🔧 核心组件
+## 🔧 Core Components
 
-### 1. 配置管理器 (Config Manager)
+### 1. Configuration Manager
 
-负责管理分片规则、数据源配置等。
+Manages sharding rules, data source configurations, etc.
 
-**主要功能：**
-- 数据源配置管理
-- 分片规则配置
-- 读写分离配置
-- YAML/JSON 配置文件支持
-- 配置验证
+**Main Functions:**
+- Data source configuration management
+- Sharding rule configuration
+- Read-write splitting configuration
+- YAML/JSON configuration file support
+- Configuration validation
 
-### 2. 路由引擎 (Routing Engine)
+### 2. Routing Engine
 
-根据分片规则和 SQL 参数计算目标数据源和表。
+Calculates target data sources and tables based on sharding rules and SQL parameters.
 
-**主要功能：**
-- 分片键提取
-- 分片算法执行
-- 路由结果计算
-- 支持多种分片策略
+**Main Functions:**
+- Sharding key extraction
+- Sharding algorithm execution
+- Route result calculation
+- Support for multiple sharding strategies
 
-### 3. SQL 重写器 (SQL Rewriter)
+### 3. SQL Rewriter
 
-将逻辑 SQL 重写为针对实际数据源的物理 SQL。
+Rewrites logical SQL into physical SQL for actual data sources.
 
-**主要功能：**
-- 逻辑表名替换为实际表名
-- 多表 UNION 查询生成
-- SQL 语法解析和重构
-- 参数绑定处理
+**Main Functions:**
+- Replace logical table names with actual table names
+- Generate multi-table UNION queries
+- SQL syntax parsing and reconstruction
+- Parameter binding handling
 
-### 4. 结果合并器 (Result Merger)
+### 4. Result Merger
 
-将多个分片的查询结果合并为统一的结果集。
+Merges query results from multiple shards into a unified result set.
 
-**主要功能：**
-- 流式结果合并
-- 排序合并（ORDER BY）
-- 分组聚合（GROUP BY）
-- 分页处理（LIMIT/OFFSET）
-- 聚合函数计算
+**Main Functions:**
+- Streaming result merging
+- Sort merging (ORDER BY)
+- Group aggregation (GROUP BY)
+- Pagination handling (LIMIT/OFFSET)
+- Aggregate function calculation
 
-### 5. ID 生成器 (ID Generator)
+### 5. ID Generator
 
-为分片表生成全局唯一的主键。
+Generates globally unique primary keys for sharded tables.
 
-**支持算法：**
-- 雪花算法（Snowflake）
-- UUID 生成
-- 自增序列
-- 自定义生成器
+**Supported Algorithms:**
+- Snowflake algorithm
+- UUID generation
+- Auto-increment sequences
+- Custom generators
 
-## 🗄️ 数据库支持
+## 🗄️ Database Support
 
-### MySQL 支持
+### MySQL Support
 
-完整支持 MySQL 数据库，包括：
-- 标准 SQL 语法
-- MySQL 特有函数
-- 事务支持
-- 连接池管理
+Complete support for MySQL database, including:
+- Standard SQL syntax
+- MySQL-specific functions
+- Transaction support
+- Connection pool management
 
-### PostgreSQL 支持
+### PostgreSQL Support
 
-全面支持 PostgreSQL 数据库及其特有功能：
+Comprehensive support for PostgreSQL database and its unique features:
 
-#### 特有功能支持
-- **JSONB 数据类型**：完整的 JSON 操作支持
-- **数组类型**：数组操作和函数
-- **全文搜索**：tsvector/tsquery 支持
-- **窗口函数**：完整的窗口函数支持
-- **CTE**：公共表表达式
-- **RETURNING 子句**：INSERT/UPDATE/DELETE 返回值
-- **自定义数据类型**：用户定义类型支持
-- **参数占位符转换**：自动转换 ? 为 $1, $2, ...
+#### Unique Feature Support
+- **JSONB Data Type**: Complete JSON operation support
+- **Array Types**: Array operations and functions
+- **Full-Text Search**: tsvector/tsquery support
+- **Window Functions**: Complete window function support
+- **CTE**: Common Table Expressions
+- **RETURNING Clause**: INSERT/UPDATE/DELETE return values
+- **Custom Data Types**: User-defined type support
+- **Parameter Placeholder Conversion**: Automatic conversion of ? to $1, $2, ...
 
-#### 快速开始 PostgreSQL
+#### PostgreSQL Quick Start
 
 ```bash
-# 启动 PostgreSQL 集群
+# Start PostgreSQL cluster
 docker-compose -f docker-compose-postgresql.yml up -d
 
-# 运行测试脚本
+# Run test script
 ./scripts/test-postgresql.sh
 
-# 运行 PostgreSQL 示例
+# Run PostgreSQL example
 cd examples/postgresql && go run main.go
 ```
 
-#### PostgreSQL 代码示例
+#### PostgreSQL Code Examples
 
 ```go
-// JSONB 查询
+// JSONB queries
 rows, err := ds.QueryContext(ctx, `
     SELECT username, address->>'city' as city 
     FROM user 
     WHERE address @> '{"city": "Beijing"}'`)
 
-// 数组操作
+// Array operations
 _, err = ds.ExecContext(ctx, `
     UPDATE user 
     SET tags = array_append(tags, ?) 
     WHERE user_id = ?`, "new_tag", userID)
 
-// 全文搜索
+// Full-text search
 rows, err := ds.QueryContext(ctx, `
     SELECT username, email 
     FROM user 
     WHERE search_vector @@ to_tsquery('english', ?)`, "john")
 
-// 窗口函数
+// Window functions
 rows, err := ds.QueryContext(ctx, `
     SELECT 
         username,
@@ -295,7 +296,7 @@ rows, err := ds.QueryContext(ctx, `
         ROW_NUMBER() OVER (ORDER BY total_amount DESC) as rank
     FROM user_order_summary`)
 
-// RETURNING 子句
+// RETURNING clause
 var newOrderID int64
 err = ds.QueryRowContext(ctx, `
     INSERT INTO order_table (user_id, product_name, total_amount) 
@@ -303,87 +304,87 @@ err = ds.QueryRowContext(ctx, `
     RETURNING order_id`, userID, "Product", 99.99).Scan(&newOrderID)
 ```
 
-## 🔍 SQL 解析器
+## 🔍 SQL Parser
 
-### 多解析器架构
+### Multi-Parser Architecture
 
-项目采用多层解析器架构，支持不同的解析策略：
+The project adopts a multi-layer parser architecture supporting different parsing strategies:
 
-#### 1. 原始解析器 (Original Parser)
-- **技术实现**：基于正则表达式
-- **性能特点**：轻量级，启动快
-- **适用场景**：简单 SQL 语句
-- **兼容性**：MySQL 85%，PostgreSQL 75%
+#### 1. Original Parser
+- **Technical Implementation**: Based on regular expressions
+- **Performance Characteristics**: Lightweight, fast startup
+- **Use Cases**: Simple SQL statements
+- **Compatibility**: MySQL 85%, PostgreSQL 75%
 
-#### 2. TiDB 解析器 (TiDB Parser)
-- **技术实现**：集成 `pingcap/tidb/pkg/parser`
-- **性能特点**：高性能，低内存使用
-- **适用场景**：复杂 MySQL 查询
-- **兼容性**：MySQL 98%+
+#### 2. TiDB Parser
+- **Technical Implementation**: Integrates `pingcap/tidb/pkg/parser`
+- **Performance Characteristics**: High performance, low memory usage
+- **Use Cases**: Complex MySQL queries
+- **Compatibility**: MySQL 98%+
 
-**性能对比：**
-| 测试场景 | 原始解析器 | TiDB Parser | 性能提升 |
-|---------|-----------|-------------|----------|
-| 简单查询 | 70μs | 5μs | **14x** |
-| 复杂 JOIN | 150μs | 25μs | **6x** |
-| INSERT 语句 | 80μs | 8μs | **10x** |
-| 内存使用 | 101,300 B/op | 3,993 B/op | **96% 减少** |
+**Performance Comparison:**
+| Test Scenario | Original Parser | TiDB Parser | Performance Improvement |
+|---------------|----------------|-------------|------------------------|
+| Simple Query | 70μs | 5μs | **14x** |
+| Complex JOIN | 150μs | 25μs | **6x** |
+| INSERT Statement | 80μs | 8μs | **10x** |
+| Memory Usage | 101,300 B/op | 3,993 B/op | **96% reduction** |
 
-#### 3. PostgreSQL 解析器
-- **技术实现**：专门针对 PostgreSQL 语法
-- **功能特点**：支持 PostgreSQL 特有语法
-- **适用场景**：PostgreSQL 数据库
+#### 3. PostgreSQL Parser
+- **Technical Implementation**: Specifically for PostgreSQL syntax
+- **Features**: Supports PostgreSQL-specific syntax
+- **Use Cases**: PostgreSQL databases
 
-#### 4. 增强解析器 (Enhanced Parser)
-- **技术实现**：集成多种解析器
-- **功能特点**：智能选择最适合的解析器
-- **适用场景**：混合数据库环境
+#### 4. Enhanced Parser
+- **Technical Implementation**: Integrates multiple parsers
+- **Features**: Intelligently selects the most suitable parser
+- **Use Cases**: Mixed database environments
 
-### 解析器配置和启用
+### Parser Configuration and Enabling
 
-#### 配置文件方式（推荐）
+#### Configuration File Method (Recommended)
 
-创建 `config.yaml` 配置文件：
+Create a `config.yaml` configuration file:
 
 ```yaml
 parser:
-  # 启用 TiDB 解析器作为默认解析器
+  # Enable TiDB parser as default parser
   enable_tidb_parser: true
-  # 启用 PostgreSQL 解析器
+  # Enable PostgreSQL parser
   enable_postgresql_parser: false
-  # 当解析失败时是否回退到原始解析器
+  # Whether to fallback to original parser when parsing fails
   fallback_to_original: true
-  # 启用性能基准测试
+  # Enable performance benchmarking
   enable_benchmarking: true
-  # 记录解析错误
+  # Log parsing errors
   log_parsing_errors: true
 ```
 
-在代码中只需一行初始化：
+Initialize with just one line in code:
 
 ```go
 import "go-sharding/pkg/parser"
 
-// 从配置文件初始化解析器（最简单的方式）
+// Initialize parser from config file (simplest way)
 err := parser.InitializeParserFromConfig("config.yaml")
 if err != nil {
     log.Fatal(err)
 }
 
-// 现在解析器已根据配置文件设置好了
+// Now the parser is set up according to the config file
 stmt, err := parser.DefaultParserFactory.Parse("SELECT * FROM users")
 ```
 
-#### 程序化配置方式
+#### Programmatic Configuration
 
 ```go
-// 方法 1: 直接启用 TiDB 解析器
+// Method 1: Directly enable TiDB parser
 err := parser.EnableTiDBParserAsDefault()
 if err != nil {
     log.Fatal(err)
 }
 
-// 方法 2: 使用配置结构体
+// Method 2: Use configuration struct
 config := &parser.InitConfig{
     EnableTiDBParser:       true,
     EnablePostgreSQLParser: false,
@@ -398,56 +399,56 @@ if err != nil {
     log.Fatal(err)
 }
 
-// 方法 3: 环境变量配置
-// 设置环境变量: ENABLE_TIDB_PARSER=true
+// Method 3: Environment variable configuration
+// Set environment variable: ENABLE_TIDB_PARSER=true
 err := parser.InitializeParserFromEnv()
 if err != nil {
     log.Fatal(err)
 }
 ```
 
-#### 验证配置是否生效
+#### Verify Configuration
 
 ```go
-// 检查当前默认解析器
+// Check current default parser
 parserType := parser.GetDefaultParserType()
-fmt.Printf("当前默认解析器: %s\n", parserType) // 应该输出: tidb
+fmt.Printf("Current default parser: %s\n", parserType) // Should output: tidb
 
-// 打印详细信息
+// Print detailed information
 parser.PrintParserInfo()
 
-// 获取统计信息
+// Get statistics
 stats := parser.GetParserFactoryStats()
-fmt.Printf("解析器统计: %+v\n", stats)
+fmt.Printf("Parser statistics: %+v\n", stats)
 ```
 
-#### 配置优先级
+#### Configuration Priority
 
-解析器配置的优先级顺序（从高到低）：
+Parser configuration priority order (from high to low):
 
-1. **代码中直接调用** - `parser.EnableTiDBParserAsDefault()`
-2. **环境变量** - `ENABLE_TIDB_PARSER=true`
-3. **配置文件** - `config.yaml` 中的 `parser` 配置
-4. **默认配置** - 系统默认设置
+1. **Direct code calls** - `parser.EnableTiDBParserAsDefault()`
+2. **Environment variables** - `ENABLE_TIDB_PARSER=true`
+3. **Configuration file** - `parser` configuration in `config.yaml`
+4. **Default configuration** - System default settings
 
-### 解析器工厂模式
+### Parser Factory Pattern
 
 ```go
-// 创建解析器
+// Create parser
 parser := parser.NewParserFactory().CreateParser("tidb")
 
-// 解析 SQL
+// Parse SQL
 stmt, err := parser.Parse("SELECT * FROM users WHERE id = ?")
 
-// 提取表名
+// Extract table names
 tables := parser.ExtractTables(sql)
 ```
 
-## 📊 分片策略
+## 📊 Sharding Strategies
 
-### 1. 数据库分片
+### 1. Database Sharding
 
-根据分片键将数据分散到不同的数据库实例。
+Distribute data to different database instances based on sharding keys.
 
 ```yaml
 databaseStrategy:
@@ -456,9 +457,9 @@ databaseStrategy:
   algorithm: "ds_${user_id % 2}"
 ```
 
-### 2. 表分片
+### 2. Table Sharding
 
-在同一数据库内将数据分散到不同的表。
+Distribute data to different tables within the same database.
 
 ```yaml
 tableStrategy:
@@ -467,9 +468,9 @@ tableStrategy:
   algorithm: "t_order_${order_id % 4}"
 ```
 
-### 3. 复合分片
+### 3. Compound Sharding
 
-同时进行数据库分片和表分片。
+Perform both database sharding and table sharding simultaneously.
 
 ```yaml
 actualDataNodes: "ds_${0..1}.t_order_${0..3}"
@@ -481,18 +482,18 @@ tableStrategy:
   algorithm: "t_order_${order_id % 4}"
 ```
 
-### 支持的分片算法
+### Supported Sharding Algorithms
 
-- **取模分片**：`ds_${user_id % 2}`
-- **范围分片**：`ds_${user_id / 1000}`
-- **哈希分片**：`ds_${hash(user_id) % 4}`
-- **自定义算法**：实现 `ShardingAlgorithm` 接口
+- **Modulo Sharding**: `ds_${user_id % 2}`
+- **Range Sharding**: `ds_${user_id / 1000}`
+- **Hash Sharding**: `ds_${hash(user_id) % 4}`
+- **Custom Algorithm**: Implement `ShardingAlgorithm` interface
 
-## 🔄 读写分离
+## 🔄 Read-Write Splitting
 
-支持主从数据库的读写分离，提高系统性能。
+Support read-write splitting for master-slave databases to improve system performance.
 
-### 配置示例
+### Configuration Example
 
 ```yaml
 readWriteSplits:
@@ -504,34 +505,34 @@ readWriteSplits:
     loadBalanceAlgorithm: round_robin
 ```
 
-### 负载均衡算法
+### Load Balancing Algorithms
 
-- **轮询（Round Robin）**：依次访问从库
-- **随机（Random）**：随机选择从库
-- **权重轮询（Weighted Round Robin）**：基于权重的轮询
+- **Round Robin**: Access slave databases in turn
+- **Random**: Randomly select slave databases
+- **Weighted Round Robin**: Weight-based round robin
 
-### 使用示例
+### Usage Example
 
 ```go
-// 创建读写分离器
+// Create read-write splitter
 splitter, err := readwrite.NewReadWriteSplitter(rwConfig, dataSources)
 
-// 自动路由查询（读操作 -> 从库）
+// Auto-route queries (read operations -> slave)
 db := splitter.Route("SELECT * FROM users WHERE id = ?")
 
-// 自动路由写操作（写操作 -> 主库）
+// Auto-route write operations (write operations -> master)
 db := splitter.Route("INSERT INTO users (name) VALUES (?)")
 
-// 强制使用主库
+// Force use master
 ctx := context.WithValue(context.Background(), "force_master", true)
 db := splitter.RouteContext(ctx, "SELECT * FROM users WHERE id = ?")
 ```
 
-## 💾 事务管理
+## 💾 Transaction Management
 
-### 1. 本地事务
+### 1. Local Transactions
 
-单分片内的事务，直接使用数据库的本地事务。
+Transactions within a single shard, directly using database local transactions.
 
 ```go
 tx, err := db.Begin()
@@ -539,57 +540,57 @@ if err != nil {
     return err
 }
 
-// 执行操作
+// Execute operations
 _, err = tx.Exec("INSERT INTO users (name) VALUES (?)", "John")
 if err != nil {
     tx.Rollback()
     return err
 }
 
-// 提交事务
+// Commit transaction
 return tx.Commit()
 ```
 
-### 2. XA 分布式事务
+### 2. XA Distributed Transactions
 
-跨分片的强一致性事务，使用两阶段提交协议。
+Strong consistency transactions across shards using two-phase commit protocol.
 
 ```go
-// 开始 XA 事务
+// Begin XA transaction
 tx, err := tm.Begin(ctx, transaction.XATransaction)
 if err != nil {
     return err
 }
 
-// 执行跨分片操作
+// Execute cross-shard operations
 err = tx.Exec("INSERT INTO users (name) VALUES (?)", "John")
 if err != nil {
     tx.Rollback()
     return err
 }
 
-// 提交事务
+// Commit transaction
 return tx.Commit()
 ```
 
-### 3. BASE 事务
+### 3. BASE Transactions
 
-最终一致性的分布式事务，适用于对一致性要求不严格的场景。
+Eventually consistent distributed transactions suitable for scenarios with relaxed consistency requirements.
 
-#### BASE 事务特性
+#### BASE Transaction Characteristics
 
-- **Basically Available（基本可用）**：系统在出现故障时仍能保证核心功能可用
-- **Soft state（软状态）**：允许系统存在中间状态，不要求实时一致性
-- **Eventually consistent（最终一致性）**：系统最终会达到一致状态
+- **Basically Available**: System maintains core functionality even during failures
+- **Soft state**: Allows intermediate states without requiring real-time consistency
+- **Eventually consistent**: System eventually reaches a consistent state
 
-#### 使用示例
+#### Usage Example
 
 ```go
-// 创建事务管理器
+// Create transaction manager
 tm := transaction.NewTransactionManager()
 defer tm.Close()
 
-// 开始 BASE 事务
+// Begin BASE transaction
 ctx := context.Background()
 tx, err := tm.Begin(ctx, transaction.BaseTransaction)
 if err != nil {
@@ -598,7 +599,7 @@ if err != nil {
 
 baseTx := tx.(*transaction.BASETransactionImpl)
 
-// 添加操作
+// Add operation
 op := transaction.BASEOperation{
     Type:       "INSERT",
     SQL:        "INSERT INTO orders (user_id, amount) VALUES (?, ?)",
@@ -611,7 +612,7 @@ if err != nil {
     log.Fatalf("Failed to add operation: %v", err)
 }
 
-// 添加补偿操作
+// Add compensation operation
 comp := transaction.BASECompensation{
     OperationID: "op1",
     SQL:         "DELETE FROM orders WHERE user_id = ? AND amount = ?",
@@ -624,34 +625,34 @@ if err != nil {
     log.Fatalf("Failed to add compensation: %v", err)
 }
 
-// 提交事务
+// Commit transaction
 err := baseTx.Commit(ctx)
 if err != nil {
     log.Fatalf("Failed to commit transaction: %v", err)
 }
 ```
 
-#### 事务状态管理
+#### Transaction State Management
 
-- **StatusActive (0)**：事务活跃状态，可以添加操作
-- **StatusPrepared (1)**：事务正在执行中
-- **StatusCommitted (2)**：事务成功提交
-- **StatusRolledBack (3)**：事务已回滚
-- **StatusFailed (4)**：事务执行失败
+- **StatusActive (0)**: Transaction active state, can add operations
+- **StatusPrepared (1)**: Transaction executing
+- **StatusCommitted (2)**: Transaction successfully committed
+- **StatusRolledBack (3)**: Transaction rolled back
+- **StatusFailed (4)**: Transaction execution failed
 
-### 事务类型对比
+### Transaction Type Comparison
 
-| 特性 | LOCAL事务 | XA事务 | BASE事务 |
-|------|-----------|--------|----------|
-| 一致性 | 强一致性 | 强一致性 | 最终一致性 |
-| 性能 | 高 | 中 | 高 |
-| 可用性 | 中 | 低 | 高 |
-| 复杂度 | 低 | 高 | 中 |
-| 适用场景 | 单数据源 | 多数据源强一致性 | 多数据源最终一致性 |
+| Feature | LOCAL Transaction | XA Transaction | BASE Transaction |
+|---------|------------------|----------------|------------------|
+| Consistency | Strong | Strong | Eventual |
+| Performance | High | Medium | High |
+| Availability | Medium | Low | High |
+| Complexity | Low | High | Medium |
+| Use Cases | Single data source | Multi-source strong consistency | Multi-source eventual consistency |
 
-## ⚙️ 配置说明
+## ⚙️ Configuration
 
-### 数据源配置
+### Data Source Configuration
 
 ```yaml
 dataSources:
@@ -667,7 +668,7 @@ dataSources:
     maxOpen: 100
 ```
 
-### 分片规则配置
+### Sharding Rule Configuration
 
 ```yaml
 shardingRule:
@@ -698,7 +699,7 @@ shardingRule:
         type: snowflake
 ```
 
-### PostgreSQL 特有配置
+### PostgreSQL-Specific Configuration
 
 ```yaml
 postgresql:
@@ -720,237 +721,237 @@ postgresql:
     - "btree_gist"
 ```
 
-## 📝 示例代码
+## 📝 Example Code
 
-查看 `examples/` 目录下的示例代码：
+Check example code in the `examples/` directory:
 
-### 基础示例
-- `examples/basic/` - 基本使用示例
-- `examples/yaml_config/` - YAML 配置示例
+### Basic Examples
+- `examples/basic/` - Basic usage example
+- `examples/yaml_config/` - YAML configuration example
 
-### 解析器示例
-- `examples/enable_tidb_parser/` - TiDB 解析器启用示例
-- `examples/config_file_parser/` - 配置文件解析器设置示例
+### Parser Examples
+- `examples/enable_tidb_parser/` - TiDB parser enabling example
+- `examples/config_file_parser/` - Configuration file parser setup example
 
-### 数据库示例
-- `examples/postgresql/` - PostgreSQL 使用示例
+### Database Examples
+- `examples/postgresql/` - PostgreSQL usage example
 
-### 事务示例
-- `examples/base_transaction/` - BASE事务使用示例
+### Transaction Examples
+- `examples/base_transaction/` - BASE transaction usage example
 
-### 快速开始示例
+### Quick Start Examples
 
-#### 1. 基本分片使用
+#### 1. Basic Sharding Usage
 
 ```bash
 cd examples/basic
 go run main.go
 ```
 
-#### 2. 启用 TiDB 解析器
+#### 2. Enable TiDB Parser
 
 ```bash
 cd examples/enable_tidb_parser
 go run main.go
 ```
 
-#### 3. 配置文件解析器设置
+#### 3. Configuration File Parser Setup
 
 ```bash
 cd examples/config_file_parser
 go run main.go
 ```
 
-#### 4. PostgreSQL 支持
+#### 4. PostgreSQL Support
 
 ```bash
-# 启动 PostgreSQL 集群
+# Start PostgreSQL cluster
 docker-compose -f docker-compose-postgresql.yml up -d
 
-# 运行示例
+# Run example
 cd examples/postgresql
 go run main.go
 ```
 
-#### 5. BASE 事务示例
+#### 5. BASE Transaction Example
 
 ```bash
 cd examples/base_transaction
 go run main.go
 ```
 
-### 增强功能示例
+### Enhanced Features Example
 
 ```go
-// 创建增强的分片数据库
+// Create enhanced sharding database
 db, err := sharding.NewEnhancedShardingDB(cfg)
 if err != nil {
     log.Fatal(err)
 }
 defer db.Close()
 
-// 健康检查
+// Health check
 if err := db.HealthCheck(); err != nil {
     log.Printf("Health check failed: %v", err)
 }
 
-// 执行查询（自动分片 + 读写分离）
+// Execute query (auto sharding + read-write splitting)
 rows, err := db.QueryContext(ctx, 
     "SELECT * FROM t_order WHERE user_id = ?", userID)
 
-// 执行写操作（自动分片 + 主库路由）
+// Execute write operation (auto sharding + master routing)
 result, err := db.ExecContext(ctx,
     "INSERT INTO t_order (user_id, amount) VALUES (?, ?)", 
     userID, amount)
 ```
 
-## 🚀 性能优化
+## 🚀 Performance Optimization
 
-### 1. 连接池管理
+### 1. Connection Pool Management
 
-- 每个数据源独立的连接池
-- 可配置的最大连接数和空闲连接数
-- 连接复用和自动回收
+- Independent connection pools for each data source
+- Configurable maximum connections and idle connections
+- Connection reuse and automatic recycling
 
-### 2. 查询优化
+### 2. Query Optimization
 
-- SQL 解析缓存
-- 路由结果缓存
-- 预编译语句支持
+- SQL parsing cache
+- Route result cache
+- Prepared statement support
 
-### 3. 结果流式处理
+### 3. Streaming Result Processing
 
-- 大结果集的流式合并
-- 内存使用优化
-- 分页查询优化
+- Streaming merge for large result sets
+- Memory usage optimization
+- Pagination query optimization
 
-### 4. 解析器性能
+### 4. Parser Performance
 
-TiDB Parser 相比原始解析器的性能提升：
+TiDB Parser performance improvements over original parser:
 
-- **解析速度**：提升 5-20 倍
-- **内存使用**：减少 90%+
-- **CPU 使用**：减少 80-90%
+- **Parsing Speed**: 5-20x improvement
+- **Memory Usage**: 90%+ reduction
+- **CPU Usage**: 80-90% reduction
 
-## 🧪 测试覆盖
+## 🧪 Test Coverage
 
-### 测试覆盖率统计
+### Test Coverage Statistics
 
-- **总体语句覆盖率**: 58.3%
-- **transaction 包覆盖率**: 75.8%
+- **Overall Statement Coverage**: 58.3%
+- **Transaction Package Coverage**: 75.8%
 
-### 各包测试状态
+### Package Test Status
 
-- ✅ `algorithm` - 完整测试套件
-- ✅ `config` - 已有测试
-- ✅ `database` - 已有测试
-- ✅ `executor` - 完整测试套件
-- ✅ `id` - 已有测试
-- ✅ `merge` - 已有测试
-- ✅ `monitoring` - 已有测试
-- ✅ `optimizer` - 完整测试套件
-- ✅ `parser` - 已有测试
-- ✅ `readwrite` - 已有测试
-- ✅ `rewrite` - 已有测试
-- ✅ `routing` - 已有测试
-- ✅ `sharding` - 已有测试
-- ✅ `transaction` - 已有测试
+- ✅ `algorithm` - Complete test suite
+- ✅ `config` - Tests available
+- ✅ `database` - Tests available
+- ✅ `executor` - Complete test suite
+- ✅ `id` - Tests available
+- ✅ `merge` - Tests available
+- ✅ `monitoring` - Tests available
+- ✅ `optimizer` - Complete test suite
+- ✅ `parser` - Tests available
+- ✅ `readwrite` - Tests available
+- ✅ `rewrite` - Tests available
+- ✅ `routing` - Tests available
+- ✅ `sharding` - Tests available
+- ✅ `transaction` - Tests available
 
-### 运行测试
+### Running Tests
 
 ```bash
-# 运行所有测试
+# Run all tests
 go test ./...
 
-# 运行核心包测试
+# Run core package tests
 go test ./pkg/...
 
-# 生成覆盖率报告
+# Generate coverage report
 go test -v -coverprofile=coverage.out ./pkg/...
 go tool cover -html=coverage.out -o coverage.html
 ```
 
-## 🚢 部署运维
+## 🚢 Deployment & Operations
 
-### Docker 部署
+### Docker Deployment
 
-#### MySQL 环境
+#### MySQL Environment
 
 ```bash
-# 启动 MySQL 集群
+# Start MySQL cluster
 docker-compose up -d
 
-# 查看服务状态
+# Check service status
 docker-compose ps
 ```
 
-#### PostgreSQL 环境
+#### PostgreSQL Environment
 
 ```bash
-# 启动 PostgreSQL 集群
+# Start PostgreSQL cluster
 docker-compose -f docker-compose-postgresql.yml up -d
 
-# 运行测试脚本
+# Run test script
 ./scripts/test-postgresql.sh
 ```
 
-### 监控指标
+### Monitoring Metrics
 
-- SQL 执行时间统计
-- 连接池状态监控
-- 分片路由统计
-- 错误率监控
+- SQL execution time statistics
+- Connection pool status monitoring
+- Sharding routing statistics
+- Error rate monitoring
 
-### 管理界面
+### Management Interface
 
 - **pgAdmin** (PostgreSQL): http://localhost:8080
-- **Prometheus 监控**: 
+- **Prometheus Monitoring**: 
   - DS0: http://localhost:9187/metrics
   - DS1: http://localhost:9188/metrics
 
-## 👨‍💻 开发指南
+## 👨‍💻 Development Guide
 
-### 项目结构
+### Project Structure
 
 ```
 go-sharding/
-├── cmd/                    # 命令行工具
-├── pkg/                    # 核心包
-│   ├── algorithm/          # 分片算法
-│   ├── config/            # 配置管理
-│   ├── database/          # 数据库管理
-│   ├── executor/          # 执行器
-│   ├── id/                # ID 生成器
-│   ├── merge/             # 结果合并
-│   ├── monitoring/        # 监控指标
-│   ├── optimizer/         # 查询优化器
-│   ├── parser/            # SQL 解析器
-│   ├── readwrite/         # 读写分离
-│   ├── rewrite/           # SQL 重写
-│   ├── routing/           # 路由引擎
-│   ├── sharding/          # 分片管理
-│   └── transaction/       # 事务管理
-├── examples/              # 示例代码
-├── scripts/               # 脚本文件
-├── docs/                  # 文档
-└── docker-compose*.yml    # Docker 配置
+├── cmd/                    # Command line tools
+├── pkg/                    # Core packages
+│   ├── algorithm/          # Sharding algorithms
+│   ├── config/            # Configuration management
+│   ├── database/          # Database management
+│   ├── executor/          # Executors
+│   ├── id/                # ID generators
+│   ├── merge/             # Result merging
+│   ├── monitoring/        # Monitoring metrics
+│   ├── optimizer/         # Query optimizer
+│   ├── parser/            # SQL parsers
+│   ├── readwrite/         # Read-write splitting
+│   ├── rewrite/           # SQL rewriting
+│   ├── routing/           # Routing engine
+│   ├── sharding/          # Sharding management
+│   └── transaction/       # Transaction management
+├── examples/              # Example code
+├── scripts/               # Script files
+├── docs/                  # Documentation
+└── docker-compose*.yml    # Docker configuration
 ```
 
-### 核心接口
+### Core Interfaces
 
 ```go
-// 解析器接口
+// Parser interface
 type ParserInterface interface {
     Parse(sql string) (*SQLStatement, error)
     ExtractTables(sql string) []string
 }
 
-// 路由器接口
+// Router interface
 type Router interface {
     Route(logicTable string, shardingValues map[string]interface{}) ([]*RouteResult, error)
 }
 
-// 事务管理器接口
+// Transaction manager interface
 type TransactionManager interface {
     Begin(ctx context.Context, txType TransactionType) (Transaction, error)
     Commit(ctx context.Context, tx Transaction) error
@@ -958,68 +959,68 @@ type TransactionManager interface {
 }
 ```
 
-### 扩展开发
+### Extension Development
 
-1. **自定义分片算法**
+1. **Custom Sharding Algorithm**
 
 ```go
 type CustomShardingAlgorithm struct{}
 
 func (a *CustomShardingAlgorithm) DoSharding(availableTargetNames []string, shardingValue *ShardingValue) []string {
-    // 实现自定义分片逻辑
+    // Implement custom sharding logic
     return []string{"target_table"}
 }
 ```
 
-2. **自定义解析器**
+2. **Custom Parser**
 
 ```go
 type CustomParser struct{}
 
 func (p *CustomParser) Parse(sql string) (*SQLStatement, error) {
-    // 实现自定义解析逻辑
+    // Implement custom parsing logic
     return &SQLStatement{}, nil
 }
 ```
 
-## 🤝 贡献指南
+## 🤝 Contributing
 
-### 贡献流程
+### Contribution Process
 
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 创建 Pull Request
+1. Fork the project
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Create a Pull Request
 
-### 代码规范
+### Code Standards
 
-- 遵循 Go 代码规范
-- 添加必要的注释和文档
-- 编写单元测试
-- 确保测试通过
+- Follow Go code conventions
+- Add necessary comments and documentation
+- Write unit tests
+- Ensure tests pass
 
-### 问题报告
+### Issue Reporting
 
-如果发现 bug 或有功能建议，请创建 Issue 并提供：
+If you find bugs or have feature suggestions, please create an Issue with:
 
-- 详细的问题描述
-- 复现步骤
-- 期望行为
-- 实际行为
-- 环境信息
+- Detailed problem description
+- Reproduction steps
+- Expected behavior
+- Actual behavior
+- Environment information
 
-## 📄 许可证
+## 📄 License
 
-本项目采用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-## 🙏 致谢
+## 🙏 Acknowledgments
 
-- [Apache ShardingSphere](https://shardingsphere.apache.org/) - 设计理念参考
-- [TiDB Parser](https://github.com/pingcap/parser) - SQL 解析器
-- [PostgreSQL](https://www.postgresql.org/) - 数据库支持
+- [Apache ShardingSphere](https://shardingsphere.apache.org/) - Design concept reference
+- [TiDB Parser](https://github.com/pingcap/parser) - SQL parser
+- [PostgreSQL](https://www.postgresql.org/) - Database support
 
-## 📞 联系我们
+## 📞 Contact Us
 
-- 项目主页：https://github.com/your-username/go-sharding
-- 问题反馈：https://github.com/your-username/go-sharding/issues
+- Project Homepage: https://github.com/your-username/go-sharding
+- Issue Reporting: https://github.com/your-username/go-sharding/issues
