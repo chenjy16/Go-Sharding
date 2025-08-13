@@ -12,18 +12,17 @@ import (
 
 // TiDBParser TiDB 解析器适配器
 // 集成了真正的 TiDB Parser (github.com/pingcap/parser)
+// 注意：TiDB Parser 不是线程安全的，每次解析都需要创建新实例
 type TiDBParser struct {
-	fallbackParser *SQLParser    // 回退到原有解析器
-	tidbParser     *parser.Parser // 真正的 TiDB Parser
-	enabled        bool           // 是否启用 TiDB Parser
+	fallbackParser *SQLParser // 回退到原有解析器
+	enabled        bool       // 是否启用 TiDB Parser
 }
 
 // NewTiDBParser 创建 TiDB 解析器
 func NewTiDBParser() *TiDBParser {
 	return &TiDBParser{
 		fallbackParser: NewSQLParser(),
-		tidbParser:     parser.New(), // 初始化真正的 TiDB Parser
-		enabled:        true,         // 启用增强解析功能
+		enabled:        true, // 启用增强解析功能
 	}
 }
 
@@ -59,9 +58,13 @@ func (p *TiDBParser) Parse(sql string) (*SQLStatement, error) {
 }
 
 // parseWithTiDBParser 使用真正的 TiDB Parser 解析
+// 为了线程安全，每次解析都创建新的 TiDB Parser 实例
 func (p *TiDBParser) parseWithTiDBParser(sql string) (*SQLStatement, error) {
+	// 创建新的 TiDB Parser 实例以确保线程安全
+	tidbParser := parser.New()
+	
 	// 使用 TiDB Parser 解析 SQL
-	stmtNodes, _, err := p.tidbParser.Parse(sql, "", "")
+	stmtNodes, _, err := tidbParser.Parse(sql, "", "")
 	if err != nil {
 		// 如果 TiDB Parser 解析失败，回退到原有解析器
 		return p.fallbackParser.Parse(sql)

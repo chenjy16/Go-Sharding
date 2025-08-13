@@ -207,11 +207,16 @@ func (f *ParserFactory) Parse(sql string) (*SQLStatement, error) {
 
 // ParseWithType 使用指定类型的解析器解析 SQL
 func (f *ParserFactory) ParseWithType(sql string, parserType ParserType) (*SQLStatement, error) {
+	// 线程安全地更新统计信息
+	f.mu.Lock()
 	f.migrationStatus.TotalParseCount++
+	f.mu.Unlock()
 	
 	parser, err := f.GetParser(parserType)
 	if err != nil {
+		f.mu.Lock()
 		f.migrationStatus.ErrorCount++
+		f.mu.Unlock()
 		if f.config.FallbackToOriginal && parserType != ParserTypeOriginal {
 			return f.ParseWithType(sql, ParserTypeOriginal)
 		}
@@ -220,7 +225,9 @@ func (f *ParserFactory) ParseWithType(sql string, parserType ParserType) (*SQLSt
 	
 	stmt, err := parser.Parse(sql)
 	if err != nil {
+		f.mu.Lock()
 		f.migrationStatus.ErrorCount++
+		f.mu.Unlock()
 		if f.config.FallbackToOriginal && parserType != ParserTypeOriginal {
 			return f.ParseWithType(sql, ParserTypeOriginal)
 		}
@@ -334,7 +341,11 @@ func (f *ParserFactory) UpdateConfig(config *ParserConfig) {
 }
 
 // updateSuccessRate 更新成功率
+// 注意：调用此方法前必须已经获取了锁
 func (f *ParserFactory) updateSuccessRate() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	
 	if f.migrationStatus.TotalParseCount > 0 {
 		successCount := f.migrationStatus.TotalParseCount - f.migrationStatus.ErrorCount
 		f.migrationStatus.SuccessRate = float64(successCount) / float64(f.migrationStatus.TotalParseCount) * 100

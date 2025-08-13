@@ -1,0 +1,211 @@
+# 混合数据库解析器配置文件
+# 支持同时使用 MySQL 和 PostgreSQL 解析器
+parser:
+  # 启用 TiDB 解析器（用于 MySQL）
+  enable_tidb_parser: true
+  # 启用 PostgreSQL 解析器
+  enable_postgresql_parser: true
+  # 当解析失败时是否回退到原始解析器
+  fallback_to_original: true
+  # 启用性能基准测试
+  enable_benchmarking: true
+  # 记录解析错误
+  log_parsing_errors: true
+  # 默认解析器类型 (mysql|postgresql|auto)
+  default_parser_type: "auto"
+  # 自动检测 SQL 方言
+  auto_detect_dialect: true
+
+# MySQL 特定配置
+mysql:
+  enableAdvancedFeatures: true
+  dialect: "mysql"
+  charset: "utf8mb4"
+  version: "8.0"
+  
+  features:
+    backtickIdentifiers: true
+    autoIncrement: true
+    mysqlLimitSyntax: true
+    mysqlFunctions: true
+    storageEngines: true
+
+# PostgreSQL 特定配置
+postgresql:
+  enableAdvancedFeatures: true
+  enableEnhancedParser: true
+  dialect: "postgresql"
+  defaultSchema: "public"
+  version: "14.0"
+  
+  features:
+    jsonb: true
+    arrays: true
+    fullTextSearch: true
+    windowFunctions: true
+    cte: true
+    returning: true
+    customTypes: true
+    extensions: true
+    parameterPlaceholders: true
+    upsert: true
+  
+  extensions:
+    - "uuid-ossp"
+    - "pg_stat_statements"
+    - "pg_trgm"
+  
+  enhancedParser:
+    enableDeepASTAnalysis: true
+    enableOptimizationSuggestions: true
+    enableComplexityAnalysis: true
+    enableDependencyAnalysis: true
+    maxParsingDepth: 10
+    enableCaching: true
+
+# 多数据源配置
+datasources:
+  # MySQL 数据源
+  mysql_master:
+    driver_name: "mysql"
+    url: "user:password@tcp(localhost:3306)/mysql_sharding_db?charset=utf8mb4&parseTime=True&loc=Local"
+    max_idle: 10
+    max_open: 100
+    conn_max_lifetime: 300
+    database_type: "mysql"
+  
+  mysql_slave:
+    driver_name: "mysql"
+    url: "user:password@tcp(localhost:3307)/mysql_sharding_db?charset=utf8mb4&parseTime=True&loc=Local"
+    max_idle: 5
+    max_open: 50
+    conn_max_lifetime: 300
+    database_type: "mysql"
+  
+  # PostgreSQL 数据源
+  postgres_master:
+    driver_name: "postgres"
+    url: "postgres://username:password@localhost:5432/postgres_sharding_db?sslmode=disable"
+    max_idle: 10
+    max_open: 100
+    conn_max_lifetime: 300
+    database_type: "postgresql"
+  
+  postgres_slave:
+    driver_name: "postgres"
+    url: "postgres://username:password@localhost:5433/postgres_sharding_db?sslmode=disable"
+    max_idle: 5
+    max_open: 50
+    conn_max_lifetime: 300
+    database_type: "postgresql"
+
+# 分片规则配置（按数据库类型分组）
+sharding_rules:
+  # MySQL 表分片规则
+  mysql_tables:
+    users:
+      actual_data_nodes: "mysql_master.users_${0..1}"
+      database_strategy:
+        sharding_column: "user_id"
+        algorithm: "user_id % 2"
+      table_strategy:
+        sharding_column: "user_id"
+        algorithm: "user_id % 2"
+      parser_type: "mysql"
+    
+    orders:
+      actual_data_nodes: "mysql_master.orders_${0..3}"
+      database_strategy:
+        sharding_column: "user_id"
+        algorithm: "user_id % 2"
+      table_strategy:
+        sharding_column: "order_id"
+        algorithm: "order_id % 4"
+      parser_type: "mysql"
+  
+  # PostgreSQL 表分片规则
+  postgresql_tables:
+    posts:
+      actual_data_nodes: "postgres_master.posts_${0..1}"
+      database_strategy:
+        sharding_column: "user_id"
+        algorithm: "user_id % 2"
+      table_strategy:
+        sharding_column: "post_id"
+        algorithm: "post_id % 2"
+      parser_type: "postgresql"
+    
+    comments:
+      actual_data_nodes: "postgres_master.comments_${0..3}"
+      database_strategy:
+        sharding_column: "post_id"
+        algorithm: "post_id % 2"
+      table_strategy:
+        sharding_column: "comment_id"
+        algorithm: "comment_id % 4"
+      parser_type: "postgresql"
+
+# 读写分离配置（按数据库类型分组）
+read_write_splits:
+  # MySQL 读写分离
+  mysql_rw:
+    write_data_source: "mysql_master"
+    read_data_sources: ["mysql_slave"]
+    load_balance_algorithm: "round_robin"
+    database_type: "mysql"
+  
+  # PostgreSQL 读写分离
+  postgres_rw:
+    write_data_source: "postgres_master"
+    read_data_sources: ["postgres_slave"]
+    load_balance_algorithm: "round_robin"
+    database_type: "postgresql"
+
+# 解析器路由规则
+parser_routing:
+  # 基于表名的路由规则
+  table_based_routing:
+    # MySQL 表
+    mysql_tables: ["users", "orders", "products", "inventory"]
+    # PostgreSQL 表
+    postgresql_tables: ["posts", "comments", "tags", "categories"]
+  
+  # 基于 SQL 特征的自动检测规则
+  auto_detection_rules:
+    # MySQL 特征
+    mysql_indicators:
+      - "AUTO_INCREMENT"
+      - "`.*`"  # 反引号标识符
+      - "LIMIT \\d+,\\s*\\d+"  # MySQL 风格的 LIMIT
+      - "ENGINE\\s*="
+    
+    # PostgreSQL 特征
+    postgresql_indicators:
+      - "\\$\\d+"  # 参数占位符
+      - "RETURNING"
+      - "@>"
+      - "JSONB"
+      - "ARRAY\\["
+      - "::"  # 类型转换
+
+# 性能优化配置
+performance:
+  # 启用解析结果缓存
+  enable_parsing_cache: true
+  # 缓存大小（条目数）
+  cache_size: 1000
+  # 缓存过期时间（秒）
+  cache_ttl: 3600
+  # 启用并发解析
+  enable_concurrent_parsing: true
+  # 最大并发数
+  max_concurrent_parsers: 10
+
+# 日志配置
+logging:
+  level: "info"
+  enable_sql_logging: true
+  enable_performance_logging: true
+  enable_parser_routing_logging: true
+  enable_cache_logging: false
+  log_slow_parsing_threshold: 100  # 毫秒

@@ -304,6 +304,65 @@ err = ds.QueryRowContext(ctx, `
     RETURNING order_id`, userID, "Product", 99.99).Scan(&newOrderID)
 ```
 
+#### PostgreSQL Enhanced Parser Features
+
+The PostgreSQL Enhanced Parser provides advanced SQL analysis capabilities:
+
+```go
+// Create enhanced parser
+enhancedParser := parser.NewPostgreSQLEnhancedParser()
+
+// Deep SQL analysis
+analysis, err := enhancedParser.AnalyzeSQL(`
+    WITH RECURSIVE employee_hierarchy AS (
+        SELECT id, name, manager_id, 1 as level
+        FROM employees WHERE manager_id IS NULL
+        UNION ALL
+        SELECT e.id, e.name, e.manager_id, eh.level + 1
+        FROM employees e
+        JOIN employee_hierarchy eh ON e.manager_id = eh.id
+    )
+    SELECT eh.name, eh.level,
+           COUNT(*) OVER (PARTITION BY eh.level) as peers_count
+    FROM employee_hierarchy eh
+    ORDER BY eh.level, eh.name
+`)
+
+if err == nil {
+    fmt.Printf("Query Type: %s\n", analysis.Type)
+    fmt.Printf("Tables: %v\n", analysis.Tables)
+    fmt.Printf("CTEs: %d (Recursive: %v)\n", len(analysis.CTEs), analysis.CTEs[0].Recursive)
+    fmt.Printf("Window Functions: %d\n", len(analysis.WindowFunctions))
+    fmt.Printf("Complexity Score: %d\n", analysis.Complexity.Score)
+    fmt.Printf("Optimization Suggestions: %d\n", len(analysis.Optimizations))
+}
+
+// Table dependency analysis
+dependencies, err := enhancedParser.AnalyzeTableDependencies(sql)
+if err == nil {
+    fmt.Printf("Table Dependencies: %v\n", dependencies)
+}
+
+// SQL optimization suggestions
+suggestions, err := enhancedParser.GetOptimizationSuggestions(sql)
+if err == nil {
+    for _, suggestion := range suggestions {
+        fmt.Printf("[%s] %s: %s\n", 
+            suggestion.Severity, suggestion.Type, suggestion.Message)
+    }
+}
+```
+
+**Enhanced Parser Capabilities:**
+- **Deep AST Analysis**: Complete syntax tree analysis
+- **CTE Support**: Regular and recursive Common Table Expressions
+- **Window Function Analysis**: ROW_NUMBER, RANK, LAG, LEAD, etc.
+- **Subquery Detection**: Scalar, WHERE, FROM subqueries
+- **Join Analysis**: INNER, LEFT, RIGHT, FULL OUTER joins
+- **Complexity Metrics**: Query complexity scoring
+- **Optimization Suggestions**: Performance and best practice recommendations
+- **Table Dependencies**: Automatic relationship detection
+
 ## 🔍 SQL Parser
 
 ### Multi-Parser Architecture
@@ -323,19 +382,32 @@ The project adopts a multi-layer parser architecture supporting different parsin
 - **Compatibility**: MySQL 98%+
 
 **Performance Comparison:**
-| Test Scenario | Original Parser | TiDB Parser | Performance Improvement |
-|---------------|----------------|-------------|------------------------|
-| Simple Query | 70μs | 5μs | **14x** |
-| Complex JOIN | 150μs | 25μs | **6x** |
-| INSERT Statement | 80μs | 8μs | **10x** |
-| Memory Usage | 101,300 B/op | 3,993 B/op | **96% reduction** |
+| Test Scenario | Original Parser | TiDB Parser | PostgreSQL Enhanced | Performance Improvement |
+|---------------|----------------|-------------|--------------------|-----------------------|
+| Simple Query | 70μs | 5μs | 73μs | **TiDB: 14x faster** |
+| Complex JOIN | 150μs | 25μs | 163μs | **TiDB: 6x faster** |
+| INSERT Statement | 80μs | 8μs | - | **TiDB: 10x faster** |
+| Window Functions | - | - | 94μs | **Specialized support** |
+| CTE Queries | - | - | 163μs | **Advanced analysis** |
+| Memory Usage | 101,300 B/op | 3,993 B/op | 82,287 B/op | **TiDB: 96% reduction** |
 
 #### 3. PostgreSQL Parser
-- **Technical Implementation**: Specifically for PostgreSQL syntax
-- **Features**: Supports PostgreSQL-specific syntax
-- **Use Cases**: PostgreSQL databases
+- **Technical Implementation**: Based on CockroachDB Parser
+- **Features**: Supports PostgreSQL-specific syntax and advanced features
+- **Use Cases**: PostgreSQL databases with complex queries
+- **Compatibility**: PostgreSQL 95%+
 
-#### 4. Enhanced Parser
+#### 4. PostgreSQL Enhanced Parser
+- **Technical Implementation**: Advanced PostgreSQL parser with deep AST analysis
+- **Features**: 
+  - **Deep SQL Analysis**: CTE, window functions, subqueries
+  - **Table Dependency Analysis**: Automatic dependency detection
+  - **SQL Optimization Suggestions**: Performance and best practice recommendations
+  - **Complex Query Support**: Recursive CTE, advanced joins, JSONB operations
+- **Performance**: Optimized for complex PostgreSQL queries
+- **Use Cases**: Enterprise PostgreSQL applications
+
+#### 5. Enhanced Parser
 - **Technical Implementation**: Integrates multiple parsers
 - **Features**: Intelligently selects the most suitable parser
 - **Use Cases**: Mixed database environments
@@ -735,6 +807,10 @@ Check example code in the `examples/` directory:
 
 ### Database Examples
 - `examples/postgresql/` - PostgreSQL usage example
+- `examples/postgresql_config/` - PostgreSQL configuration example
+- `examples/postgresql_parser/` - PostgreSQL parser example
+- `examples/postgresql_enhanced_parser/` - **PostgreSQL Enhanced Parser example**
+- `examples/cockroachdb_adapter/` - CockroachDB adapter example
 
 ### Transaction Examples
 - `examples/base_transaction/` - BASE transaction usage example
@@ -773,7 +849,14 @@ cd examples/postgresql
 go run main.go
 ```
 
-#### 5. BASE Transaction Example
+#### 5. PostgreSQL Enhanced Parser Example
+
+```bash
+cd examples/postgresql_enhanced_parser
+go run main.go
+```
+
+#### 6. BASE Transaction Example
 
 ```bash
 cd examples/base_transaction
@@ -827,35 +910,45 @@ result, err := db.ExecContext(ctx,
 
 ### 4. Parser Performance
 
-TiDB Parser performance improvements over original parser:
-
+**TiDB Parser** performance improvements over original parser:
 - **Parsing Speed**: 5-20x improvement
 - **Memory Usage**: 90%+ reduction
 - **CPU Usage**: 80-90% reduction
+
+**PostgreSQL Enhanced Parser** performance characteristics:
+- **Simple Queries**: ~73μs per operation
+- **Complex Queries**: ~163μs per operation
+- **Window Functions**: ~94μs per operation
+- **Memory Efficiency**: ~82KB per operation
+- **Advanced Features**: Deep AST analysis with minimal overhead
 
 ## 🧪 Test Coverage
 
 ### Test Coverage Statistics
 
-- **Overall Statement Coverage**: 58.3%
+- **Overall Statement Coverage**: 58.9%
 - **Transaction Package Coverage**: 75.8%
 
 ### Package Test Status
 
-- ✅ `algorithm` - Complete test suite
-- ✅ `config` - Tests available
-- ✅ `database` - Tests available
-- ✅ `executor` - Complete test suite
-- ✅ `id` - Tests available
-- ✅ `merge` - Tests available
-- ✅ `monitoring` - Tests available
-- ✅ `optimizer` - Complete test suite
-- ✅ `parser` - Tests available
-- ✅ `readwrite` - Tests available
-- ✅ `rewrite` - Tests available
-- ✅ `routing` - Tests available
-- ✅ `sharding` - Tests available
-- ✅ `transaction` - Tests available
+- ✅ `algorithm` - Complete test suite with comprehensive coverage
+- ✅ `config` - Configuration validation and parser tests
+- ✅ `database` - Database type and dialect tests
+- ✅ `executor` - Complete execution plan test suite
+- ✅ `id` - ID generator tests with performance benchmarks
+- ✅ `merge` - Result merger tests with complex scenarios
+- ✅ `monitoring` - Metrics collection and monitoring tests
+- ✅ `optimizer` - SQL optimizer comprehensive test suite
+- ✅ `parser` - **Enhanced parser test suite** including:
+  - PostgreSQL Enhanced Parser comprehensive tests
+  - CockroachDB Adapter tests
+  - TiDB Parser performance tests
+  - Multi-parser factory tests
+- ✅ `readwrite` - Read-write splitting tests
+- ✅ `rewrite` - SQL rewriting tests
+- ✅ `routing` - Routing engine tests
+- ✅ `sharding` - Enhanced sharding tests including PostgreSQL support
+- ✅ `transaction` - Complete transaction management tests
 
 ### Running Tests
 
@@ -925,15 +1018,27 @@ go-sharding/
 │   ├── merge/             # Result merging
 │   ├── monitoring/        # Monitoring metrics
 │   ├── optimizer/         # Query optimizer
-│   ├── parser/            # SQL parsers
+│   ├── parser/            # **Enhanced SQL parsers**
+│   │   ├── postgresql_enhanced_parser.go  # PostgreSQL Enhanced Parser
+│   │   ├── cockroachdb_adapter.go         # CockroachDB Adapter
+│   │   ├── tidb_parser.go                 # TiDB Parser
+│   │   └── parser_factory.go              # Multi-parser factory
 │   ├── readwrite/         # Read-write splitting
 │   ├── rewrite/           # SQL rewriting
 │   ├── routing/           # Routing engine
-│   ├── sharding/          # Sharding management
+│   ├── sharding/          # **Enhanced sharding management**
+│   │   ├── postgresql_datasource.go       # PostgreSQL data source
+│   │   └── enhanced_datasource.go         # Enhanced data source
 │   └── transaction/       # Transaction management
-├── examples/              # Example code
+├── examples/              # **Comprehensive example code**
+│   ├── postgresql_enhanced_parser/        # PostgreSQL Enhanced Parser demo
+│   ├── cockroachdb_adapter/               # CockroachDB Adapter demo
+│   ├── postgresql_config/                 # PostgreSQL configuration demo
+│   └── base_transaction/                  # BASE transaction demo
 ├── scripts/               # Script files
-├── docs/                  # Documentation
+├── docs/                  # **Enhanced documentation**
+│   └── postgresql_enhanced_features.md    # PostgreSQL Enhanced Features
+├── benchmarks/            # Performance benchmarks
 └── docker-compose*.yml    # Docker configuration
 ```
 

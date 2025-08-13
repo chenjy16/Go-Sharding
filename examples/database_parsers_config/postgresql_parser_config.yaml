@@ -1,0 +1,130 @@
+# PostgreSQL 解析器配置文件
+parser:
+  # 禁用 TiDB 解析器
+  enable_tidb_parser: false
+  # 启用 PostgreSQL 解析器
+  enable_postgresql_parser: true
+  # 当解析失败时是否回退到原始解析器
+  fallback_to_original: true
+  # 启用性能基准测试
+  enable_benchmarking: true
+  # 记录解析错误
+  log_parsing_errors: true
+
+# PostgreSQL 特定配置
+postgresql:
+  # 启用 PostgreSQL 高级功能
+  enableAdvancedFeatures: true
+  # 启用增强解析器
+  enableEnhancedParser: true
+  # PostgreSQL 方言
+  dialect: "postgresql"
+  # 默认模式
+  defaultSchema: "public"
+  # 支持的 PostgreSQL 版本
+  version: "14.0"
+  
+  # PostgreSQL 特有功能支持
+  features:
+    # 支持 JSONB 数据类型和操作符
+    jsonb: true
+    # 支持数组类型和操作
+    arrays: true
+    # 支持全文搜索
+    fullTextSearch: true
+    # 支持窗口函数
+    windowFunctions: true
+    # 支持 CTE (Common Table Expression)
+    cte: true
+    # 支持 RETURNING 子句
+    returning: true
+    # 支持自定义数据类型
+    customTypes: true
+    # 支持扩展
+    extensions: true
+    # 支持参数占位符 ($1, $2, ...)
+    parameterPlaceholders: true
+    # 支持 UPSERT (ON CONFLICT)
+    upsert: true
+  
+  # 启用的扩展
+  extensions:
+    - "uuid-ossp"
+    - "pg_stat_statements"
+    - "pg_trgm"
+    - "btree_gin"
+    - "btree_gist"
+  
+  # 增强解析器配置
+  enhancedParser:
+    # 启用深度 AST 分析
+    enableDeepASTAnalysis: true
+    # 启用 SQL 优化建议
+    enableOptimizationSuggestions: true
+    # 启用复杂度分析
+    enableComplexityAnalysis: true
+    # 启用表依赖分析
+    enableDependencyAnalysis: true
+    # 最大解析深度
+    maxParsingDepth: 10
+    # 启用缓存
+    enableCaching: true
+
+# 数据源配置示例（可选）
+datasources:
+  postgres_master:
+    driver_name: "postgres"
+    url: "postgres://username:password@localhost:5432/sharding_db?sslmode=disable"
+    max_idle: 10
+    max_open: 100
+    conn_max_lifetime: 300
+  
+  postgres_slave1:
+    driver_name: "postgres"
+    url: "postgres://username:password@localhost:5433/sharding_db?sslmode=disable"
+    max_idle: 5
+    max_open: 50
+    conn_max_lifetime: 300
+  
+  postgres_slave2:
+    driver_name: "postgres"
+    url: "postgres://username:password@localhost:5434/sharding_db?sslmode=disable"
+    max_idle: 5
+    max_open: 50
+    conn_max_lifetime: 300
+
+# 分片规则配置示例（可选）
+sharding_rules:
+  tables:
+    users:
+      actual_data_nodes: "postgres_master.users_${0..1}"
+      database_strategy:
+        sharding_column: "user_id"
+        algorithm: "user_id % 2"
+      table_strategy:
+        sharding_column: "user_id"
+        algorithm: "user_id % 2"
+    
+    posts:
+      actual_data_nodes: "postgres_master.posts_${0..3}"
+      database_strategy:
+        sharding_column: "user_id"
+        algorithm: "user_id % 2"
+      table_strategy:
+        sharding_column: "post_id"
+        algorithm: "post_id % 4"
+
+# 读写分离配置示例（可选）
+read_write_splits:
+  postgres_rw:
+    write_data_source: "postgres_master"
+    read_data_sources: ["postgres_slave1", "postgres_slave2"]
+    load_balance_algorithm: "round_robin"
+
+# 日志配置
+logging:
+  level: "info"
+  enable_sql_logging: true
+  enable_performance_logging: true
+  enable_ast_logging: false
+  enable_optimization_logging: true

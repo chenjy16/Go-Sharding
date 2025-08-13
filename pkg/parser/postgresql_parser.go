@@ -5,12 +5,16 @@ import (
 	"go-sharding/pkg/database"
 	"regexp"
 	"strings"
+
+	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/parser"
+	"github.com/cockroachdb/cockroachdb-parser/pkg/sql/sem/tree"
 )
 
-// PostgreSQLParser PostgreSQL 特定的 SQL 解析器
+// PostgreSQLParser PostgreSQL 解析器
 type PostgreSQLParser struct {
 	*EnhancedSQLParser
 	dialect database.DatabaseDialect
+	parser  *parser.Parser
 }
 
 // NewPostgreSQLParser 创建 PostgreSQL 解析器
@@ -19,25 +23,245 @@ func NewPostgreSQLParser() *PostgreSQLParser {
 	return &PostgreSQLParser{
 		EnhancedSQLParser: NewEnhancedSQLParser(),
 		dialect:           dialect,
+		parser:            &parser.Parser{},
 	}
 }
 
 // ParsePostgreSQLSpecific 解析 PostgreSQL 特定语法
 func (p *PostgreSQLParser) ParsePostgreSQLSpecific(sql string) (*EnhancedSQLStatement, error) {
-	// 首先使用基础解析器
-	result, err := p.EnhancedSQLParser.Parse(sql)
+	// 使用 CockroachDB Parser 解析 SQL
+	stmts, err := p.parser.Parse(sql)
 	if err != nil {
-		return nil, err
+		// 如果 CockroachDB Parser 失败，回退到基础解析器
+		result, fallbackErr := p.EnhancedSQLParser.Parse(sql)
+		if fallbackErr != nil {
+			return nil, fmt.Errorf("both CockroachDB parser and fallback parser failed: %w, %w", err, fallbackErr)
+		}
+		// 使用正则表达式增强 PostgreSQL 特性（保持向后兼容）
+		p.enhancePostgreSQLFeaturesRegex(result, sql)
+		return result, nil
 	}
 
-	// 增强 PostgreSQL 特定功能
-	p.enhancePostgreSQLFeatures(result, sql)
-	
+	if len(stmts) == 0 {
+		return nil, fmt.Errorf("no statements found in SQL")
+	}
+
+	// 转换为 EnhancedSQLStatement
+	result := &EnhancedSQLStatement{
+		OriginalSQL:        sql,
+		Type:               p.determineStatementType(stmts[0].AST),
+		Tables:             p.extractTablesFromAST(stmts[0].AST),
+		Columns:            p.extractColumnsFromAST(stmts[0].AST),
+		Conditions:         make(map[string]interface{}),
+		PostgreSQLFeatures: make(map[string]interface{}),
+	}
+
+	// 使用 AST 增强 PostgreSQL 特定功能
+	p.enhancePostgreSQLFeaturesAST(result, stmts[0].AST, sql)
+
 	return result, nil
 }
 
-// enhancePostgreSQLFeatures 增强 PostgreSQL 特定功能
-func (p *PostgreSQLParser) enhancePostgreSQLFeatures(result *EnhancedSQLStatement, sql string) {
+// determineStatementType 确定语句类型
+func (p *PostgreSQLParser) determineStatementType(stmt tree.Statement) SQLType {
+	switch stmt.(type) {
+	case *tree.Select:
+		return SQLTypeSelect
+	case *tree.Insert:
+		return SQLTypeInsert
+	case *tree.Update:
+		return SQLTypeUpdate
+	case *tree.Delete:
+		return SQLTypeDelete
+	case *tree.CreateTable:
+		return SQLTypeCreate
+	case *tree.DropTable:
+		return SQLTypeDrop
+	case *tree.AlterTable:
+		return SQLTypeAlter
+	default:
+		return SQLTypeOther
+	}
+}
+
+// extractTablesFromAST 从 AST 中提取表名
+func (p *PostgreSQLParser) extractTablesFromAST(stmt tree.Statement) []string {
+	tables := make([]string, 0)
+	
+	// 根据语句类型提取表名
+	switch s := stmt.(type) {
+	case *tree.Select:
+		tables = append(tables, p.extractTablesFromSelect(s)...)
+	case *tree.Insert:
+		if s.Table != nil {
+			tables = append(tables, p.extractTableNameFromTableExpr(s.Table)...)
+		}
+	case *tree.Update:
+		if s.Table != nil {
+			tables = append(tables, p.extractTableNameFromTableExpr(s.Table)...)
+		}
+	case *tree.Delete:
+		if s.Table != nil {
+			tables = append(tables, p.extractTableNameFromTableExpr(s.Table)...)
+		}
+	case *tree.CreateTable:
+		if s.Table.Table() != "" {
+			tables = append(tables, p.extractTableNameFromTableName(&s.Table))
+		}
+	case *tree.DropTable:
+		for _, name := range s.Names {
+			tables = append(tables, p.extractTableNameFromTableName(&name))
+		}
+	case *tree.AlterTable:
+		if s.Table != nil {
+			tables = append(tables, p.extractTableNameFromUnresolvedObjectName(s.Table))
+		}
+	}
+	
+	return tables
+}
+
+// extractTablesFromSelect 从 SELECT 语句中提取表名
+func (p *PostgreSQLParser) extractTablesFromSelect(sel *tree.Select) []string {
+	tables := make([]string, 0)
+	
+	if selectClause, ok := sel.Select.(*tree.SelectClause); ok {
+		if selectClause.From.Tables != nil {
+			tables = append(tables, p.extractTablesFromTableExprs(selectClause.From.Tables)...)
+		}
+	}
+	
+	return tables
+}
+
+// extractTablesFromTableExprs 从表表达式列表中提取表名
+func (p *PostgreSQLParser) extractTablesFromTableExprs(exprs tree.TableExprs) []string {
+	tables := make([]string, 0)
+	for _, expr := range exprs {
+		tables = append(tables, p.extractTableNameFromTableExpr(expr)...)
+	}
+	return tables
+}
+
+// extractTableNameFromTableExpr 从表表达式中提取表名
+func (p *PostgreSQLParser) extractTableNameFromTableExpr(expr tree.TableExpr) []string {
+	tables := make([]string, 0)
+	
+	switch e := expr.(type) {
+	case *tree.AliasedTableExpr:
+		if tableName, ok := e.Expr.(*tree.TableName); ok {
+			tables = append(tables, p.extractTableNameFromTableName(tableName))
+		}
+	case *tree.TableName:
+		tables = append(tables, p.extractTableNameFromTableName(e))
+	}
+	
+	return tables
+}
+
+// extractTableNameFromTableName 从 TableName 中提取表名
+func (p *PostgreSQLParser) extractTableNameFromTableName(tableName *tree.TableName) string {
+	return tableName.Table()
+}
+
+// extractTableNameFromUnresolvedObjectName 从 UnresolvedObjectName 中提取表名
+func (p *PostgreSQLParser) extractTableNameFromUnresolvedObjectName(objName *tree.UnresolvedObjectName) string {
+	return objName.Object()
+}
+
+// extractColumnsFromAST 从 AST 中提取列名
+func (p *PostgreSQLParser) extractColumnsFromAST(stmt tree.Statement) []string {
+	// 简单实现，可以根据需要扩展
+	columns := make([]string, 0)
+	// TODO: 实现列名提取逻辑
+	return columns
+}
+
+// enhancePostgreSQLFeaturesAST 使用 AST 增强 PostgreSQL 特定功能
+func (p *PostgreSQLParser) enhancePostgreSQLFeaturesAST(result *EnhancedSQLStatement, stmt tree.Statement, sql string) {
+	// 处理 LIMIT/OFFSET
+	p.parsePostgreSQLLimitAST(result, stmt)
+	
+	// 处理 RETURNING 子句
+	p.parseReturningClauseAST(result, stmt)
+	
+	// 处理 PostgreSQL 特定函数（仍使用正则表达式作为补充）
+	p.parsePostgreSQLFunctions(result, sql)
+	
+	// 处理 PostgreSQL 特定操作符（仍使用正则表达式作为补充）
+	p.parsePostgreSQLOperators(result, sql)
+	
+	// 处理 PostgreSQL 特定数据类型（仍使用正则表达式作为补充）
+	p.parsePostgreSQLDataTypes(result, sql)
+}
+
+// parsePostgreSQLLimitAST 使用 AST 解析 LIMIT/OFFSET
+func (p *PostgreSQLParser) parsePostgreSQLLimitAST(result *EnhancedSQLStatement, stmt tree.Statement) {
+	if selectStmt, ok := stmt.(*tree.Select); ok {
+		if selectStmt.Limit != nil {
+			if selectStmt.Limit.Count != nil {
+				result.PostgreSQLFeatures["limit"] = selectStmt.Limit.Count.String()
+			}
+			if selectStmt.Limit.Offset != nil {
+				result.PostgreSQLFeatures["offset"] = selectStmt.Limit.Offset.String()
+			}
+		}
+	}
+}
+
+// parseReturningClauseAST 使用 AST 解析 RETURNING 子句
+func (p *PostgreSQLParser) parseReturningClauseAST(result *EnhancedSQLStatement, stmt tree.Statement) {
+	switch s := stmt.(type) {
+	case *tree.Insert:
+		if s.Returning != nil {
+			if returningExprs, ok := s.Returning.(*tree.ReturningExprs); ok {
+				returningCols := make([]string, len(*returningExprs))
+				for i, selectExpr := range *returningExprs {
+					returningCols[i] = tree.AsString(selectExpr.Expr)
+				}
+				// 为了保持与现有测试的兼容性，如果只有一个列，返回字符串
+				if len(returningCols) == 1 {
+					result.PostgreSQLFeatures["returning"] = returningCols[0]
+				} else {
+					result.PostgreSQLFeatures["returning"] = returningCols
+				}
+			}
+		}
+	case *tree.Update:
+		if s.Returning != nil {
+			if returningExprs, ok := s.Returning.(*tree.ReturningExprs); ok {
+				returningCols := make([]string, len(*returningExprs))
+				for i, selectExpr := range *returningExprs {
+					returningCols[i] = tree.AsString(selectExpr.Expr)
+				}
+				// 为了保持与现有测试的兼容性，如果只有一个列，返回字符串
+				if len(returningCols) == 1 {
+					result.PostgreSQLFeatures["returning"] = returningCols[0]
+				} else {
+					result.PostgreSQLFeatures["returning"] = returningCols
+				}
+			}
+		}
+	case *tree.Delete:
+		if s.Returning != nil {
+			if returningExprs, ok := s.Returning.(*tree.ReturningExprs); ok {
+				returningCols := make([]string, len(*returningExprs))
+				for i, selectExpr := range *returningExprs {
+					returningCols[i] = tree.AsString(selectExpr.Expr)
+				}
+				// 为了保持与现有测试的兼容性，如果只有一个列，返回字符串
+				if len(returningCols) == 1 {
+					result.PostgreSQLFeatures["returning"] = returningCols[0]
+				} else {
+					result.PostgreSQLFeatures["returning"] = returningCols
+				}
+			}
+		}
+	}
+}
+
+// enhancePostgreSQLFeaturesRegex 使用正则表达式增强 PostgreSQL 特定功能（向后兼容）
+func (p *PostgreSQLParser) enhancePostgreSQLFeaturesRegex(result *EnhancedSQLStatement, sql string) {
 	// 初始化 PostgreSQL 特性字段
 	if result.PostgreSQLFeatures == nil {
 		result.PostgreSQLFeatures = make(map[string]interface{})
@@ -312,7 +536,13 @@ func (p *PostgreSQLParser) ValidatePostgreSQLSQL(sql string) error {
 
 // ExtractTables 提取表名（实现 ParserInterface 接口）
 func (p *PostgreSQLParser) ExtractTables(sql string) []string {
-	// 使用增强解析器的表名提取功能
+	// 首先尝试使用 CockroachDB Parser
+	stmts, err := p.parser.Parse(sql)
+	if err == nil && len(stmts) > 0 {
+		return p.extractTablesFromAST(stmts[0].AST)
+	}
+	
+	// 如果 CockroachDB Parser 失败，回退到增强解析器
 	tables, err := p.EnhancedSQLParser.extractTables(sql)
 	if err != nil {
 		// 如果解析失败，返回空切片
