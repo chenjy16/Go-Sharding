@@ -171,9 +171,50 @@ func (p *PostgreSQLParser) extractTableNameFromUnresolvedObjectName(objName *tre
 
 // extractColumnsFromAST 从 AST 中提取列名
 func (p *PostgreSQLParser) extractColumnsFromAST(stmt tree.Statement) []string {
-	// 简单实现，可以根据需要扩展
 	columns := make([]string, 0)
-	// TODO: 实现列名提取逻辑
+	
+	// 根据语句类型提取列名
+	switch s := stmt.(type) {
+	case *tree.Select:
+		columns = append(columns, p.extractColumnsFromSelectAST(s)...)
+	case *tree.Insert:
+		if s.Columns != nil {
+			for _, col := range s.Columns {
+				columns = append(columns, col.String())
+			}
+		}
+	case *tree.Update:
+		for _, expr := range s.Exprs {
+			columns = append(columns, expr.Names[0].String())
+		}
+	}
+	
+	return columns
+}
+
+// extractColumnsFromSelectAST 从 SELECT AST 中提取列名
+func (p *PostgreSQLParser) extractColumnsFromSelectAST(sel *tree.Select) []string {
+	columns := make([]string, 0)
+	
+	if sel.Select != nil {
+		switch s := sel.Select.(type) {
+		case *tree.SelectClause:
+			for _, expr := range s.Exprs {
+				if expr.Expr != nil {
+					switch e := expr.Expr.(type) {
+					case *tree.ColumnItem:
+						columns = append(columns, e.String())
+					case *tree.AllColumnsSelector:
+						columns = append(columns, "*")
+					default:
+						// 对于其他表达式（如函数调用、计算列等），使用表达式的字符串表示
+						columns = append(columns, tree.AsString(e))
+					}
+				}
+			}
+		}
+	}
+	
 	return columns
 }
 
